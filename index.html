@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>라벨 스캔 가이드</title>
+<style>
+/* 매장에서 서서 한 손으로 보는 화면: 흰 바탕, 검은 글씨, 강조색 하나, 큰 글씨. */
+:root {
+  color-scheme: light;
+  --bg: #FFFFFF;
+  --band: #F2F4F7;
+  --ink: #111111;
+  --sub: #3A434D;
+  --line: #C5CDD6;
+  --accent: #0A4FB4;
+  --on-accent: #FFFFFF;
+  --good: #0B6B2B;
+  --warn-bg: #FFF1CC;
+  --warn-ink: #5C3A00;
+  --bad: #A32014;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; font-size: 17px; line-height: 1.55; word-break: keep-all; overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+h1, h2, h3, p, ul, dl, dd { margin: 0; }
+ul { padding: 0; list-style: none; }
+.wrap { max-width: 600px; margin: 0 auto; padding: 14px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 22px; font-weight: 800; line-height: 1.25; }
+h2 { font-size: 20px; font-weight: 800; line-height: 1.3; }
+h3 { font-size: 17px; font-weight: 700; line-height: 1.35; }
+.sub { color: var(--sub); font-size: 15px; }
+.tag { font-size: 14px; font-weight: 700; color: var(--accent); }
+
+button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; cursor: pointer; min-height: 52px; padding: 10px 16px; background: var(--band); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+button.primary { background: var(--accent); color: var(--on-accent); }
+button.line { background: var(--bg); border: 2px solid var(--ink); min-height: 44px; padding: 6px 14px; font-size: 15px; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* 메인 */
+.topbar { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.searchbox { display: flex; flex-direction: column; gap: 8px; }
+.searchbox label { font-size: 18px; font-weight: 800; }
+.searchbox input { width: 100%; font: inherit; font-size: 18px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--ink); background: var(--bg); color: var(--ink); min-height: 56px; }
+.examples { display: flex; gap: 8px; flex-wrap: wrap; }
+.examples button { min-height: 40px; padding: 6px 12px; font-size: 14px; font-weight: 500; border: 1.5px solid var(--line); background: var(--bg); text-align: left; }
+.shoot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.shoot button { min-height: 64px; font-size: 18px; }
+.status { font-size: 16px; font-weight: 700; padding: 10px 12px; border-radius: 10px; background: var(--band); }
+.status.err { background: var(--warn-bg); color: var(--warn-ink); }
+.block { display: flex; flex-direction: column; gap: 10px; }
+.list { display: flex; flex-direction: column; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; background: var(--bg); border-top: 1.5px solid var(--line); border-radius: 0; padding: 12px 0; text-align: left; min-height: 0; font-weight: 700; }
+.item:first-child { border-top: 0; }
+.item .nm { display: flex; flex-direction: column; min-width: 0; }
+.item .nm small { color: var(--sub); font-weight: 400; font-size: 14px; }
+.item .pr { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cats { display: flex; gap: 8px; flex-wrap: wrap; }
+.cats button { min-height: 44px; padding: 6px 14px; font-size: 16px; }
+.cats button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+/* 추천 카드 */
+.rec { border: 2px solid var(--ink); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.rec .head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.rec .rank { font-size: 14px; font-weight: 800; color: var(--accent); }
+.say { background: var(--accent); color: var(--on-accent); border-radius: 12px; padding: 14px; font-size: 19px; font-weight: 700; line-height: 1.5; }
+.say small { display: block; font-size: 13px; font-weight: 700; opacity: .9; margin-bottom: 4px; letter-spacing: .02em; }
+.why li { display: grid; grid-template-columns: 24px 1fr; gap: 4px; font-size: 17px; }
+.why li::before { content: "✓"; font-weight: 800; color: var(--good); }
+.minus li::before { content: "△"; color: var(--bad); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.note { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 10px 12px; font-size: 15px; font-weight: 500; }
+
+/* 제품 화면 */
+.phead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.phead h2 { font-size: 21px; }
+.price { font-size: 24px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.next li { font-size: 18px; padding: 8px 0; border-top: 1.5px solid var(--line); }
+.next li:first-child { border-top: 0; }
+.jump { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.jump button { min-height: 44px; padding: 6px 14px; font-size: 15px; white-space: nowrap; flex: 0 0 auto; border: 2px solid var(--ink); background: var(--bg); }
+details.acc { border: 2px solid var(--line); border-radius: 12px; }
+details.acc[open] { border-color: var(--ink); }
+details.acc > summary { list-style: none; cursor: pointer; padding: 14px; display: grid; grid-template-columns: 1fr 24px; gap: 4px 8px; align-items: center; }
+details.acc > summary::-webkit-details-marker { display: none; }
+details.acc > summary .t { font-size: 18px; font-weight: 800; }
+details.acc > summary .pv { grid-column: 1; font-size: 15px; color: var(--sub); }
+details.acc > summary::after { content: "＋"; grid-column: 2; grid-row: 1 / span 2; font-size: 22px; font-weight: 800; text-align: center; }
+details.acc[open] > summary::after { content: "－"; }
+.acc .body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.lab { font-size: 15px; font-weight: 800; color: var(--accent); }
+.kv { display: grid; grid-template-columns: minmax(84px, auto) 1fr; gap: 6px 12px; font-size: 16px; }
+.kv dt { color: var(--sub); }
+.kv dd { font-weight: 500; }
+.alt { border: 1.5px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.alt.me { border: 2px solid var(--accent); }
+.rich { display: flex; flex-direction: column; gap: 8px; font-size: 16px; border-top: 1.5px dashed var(--line); padding-top: 12px; }
+.rich h4 { margin: 6px 0 0; font-size: 16px; font-weight: 800; }
+.rich li { display: grid; grid-template-columns: 14px 1fr; gap: 4px; }
+.rich li::before { content: "·"; font-weight: 800; }
+.ocr { font-size: 14px; white-space: pre-wrap; max-height: 140px; overflow: auto; background: var(--band); padding: 8px; border-radius: 8px; }
+footer { font-size: 14px; color: var(--sub); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="home" class="block" style="gap:16px">
+    <header class="topbar">
+      <h1>라벨 스캔 가이드</h1>
+      <button class="line" id="upd" type="button">업데이트 확인</button>
+    </header>
+    <p class="sub" id="ver">자료를 불러오는 중</p>
+    <p class="status" id="updMsg" role="status" hidden></p>
+
+    <section class="searchbox" aria-label="검색창">
+      <label for="q">검색창</label>
+      <input id="q" type="search" placeholder="제품명·코드 또는 고객 질문 입력" autocomplete="off">
+      <div class="examples" id="examples"></div>
+    </section>
+
+    <section class="shoot" aria-label="라벨 스캔">
+      <button class="primary" id="scanBtn" type="button">라벨 촬영</button>
+      <button id="pickBtn" type="button">사진 선택</button>
+    </section>
+    <p class="status" id="status" role="status" hidden></p>
+    <details id="ocrBox" hidden><summary class="sub">읽은 글자 보기</summary><div class="ocr" id="ocrText"></div></details>
+
+    <section class="block" id="recBlock" hidden>
+      <h2 id="recTitle">고객 질문에 맞는 추천</h2>
+      <p class="sub" id="recSub"></p>
+      <div class="block" id="recs"></div>
+    </section>
+
+    <section class="block" id="resBlock" hidden>
+      <h2 id="resTitle">검색 결과</h2>
+      <div class="list" id="res"></div>
+    </section>
+
+    <section class="block" id="catBlock">
+      <h2>종류별로 보기</h2>
+      <div class="cats" id="cats"></div>
+      <div class="list" id="catList"></div>
+    </section>
+
+    <footer>제품 정보와 가격은 자료 작성 시점 기준입니다. 고객에게는 라벨에 적힌 가격으로 안내하세요. 경쟁사 제품의 가격과 사양은 시점에 따라 다를 수 있습니다.</footer>
+  </div>
+
+  <div id="detail" class="block" hidden style="gap:14px">
+    <button class="line" id="backBtn" type="button" style="align-self:flex-start">← 목록으로</button>
+    <div id="result" class="block" style="gap:14px"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = window.Native || null;
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const str = (v) => (v == null ? "" : String(v).trim());
+  const won = (n) => (typeof n === "number" && n > 0 ? n.toLocaleString("ko-KR") + "원" : "");
+  const priceOf = (p) => won(p.price) + (p.priceMax && p.priceMax > p.price ? "~" : "");
+  const norm = (s) => String(s).toLowerCase().replace(/[^0-9a-z가-힣]+/g, "");
+  const toks = (s) => [...new Set(String(s).toLowerCase().split(/[^0-9a-z가-힣]+/).filter((t) => t.length >= 2))];
+  const copyText = (text, btn, label) => {
+    try { N.copy(text); btn.textContent = "복사했습니다"; setTimeout(() => (btn.textContent = label), 1500); } catch (_) { btn.textContent = "앱에서만 복사됩니다"; setTimeout(() => (btn.textContent = label), 1500); }
+  };
+
+  let DB = { version: "", products: [] };
+  let codeMap = new Map();
+  let idf = new Map();
+  let activeCat = "";
+
+  /* ---------- 자료 ---------- */
+  async function loadData() {
+    try {
+      const r = await fetch("data.json?t=" + Date.now());
+      const d = await r.json();
+      if (!d || !Array.isArray(d.products)) throw new Error("bad data");
+      DB = d;
+    } catch (_) { $("ver").textContent = "자료를 불러오지 못했습니다"; return; }
+    codeMap = new Map();
+    const df = new Map();
+    DB.products.forEach((p, i) => {
+      arr(p.codes).forEach((c) => codeMap.set(String(c), i));
+      p._tok = toks(str(p.name) + " " + str(p.brand));
+      p._norm = norm(str(p.name) + str(p.brand));
+      p._tok.forEach((t) => df.set(t, (df.get(t) || 0) + 1));
+      p._kind = str(p.cat) + " " + str(p.name);
+      p._hi = [str(p.name), str(p.pitch)].concat(arr(p.key_points)).join(" ");
+      p._lo = [str(p.target_customer), str(p.script)].concat(arr(p.specs).map((s) => str(s.label) + " " + str(s.value))).join(" ");
+    });
+    idf = new Map();
+    df.forEach((n, t) => idf.set(t, Math.log(DB.products.length / n) + 1));
+    DB.products.forEach((p) => { p._w = p._tok.reduce((a, t) => a + idf.get(t), 0) || 1; });
+    $("ver").textContent = "자료 " + str(DB.version) + " · 제품 " + DB.products.length + "개";
+    renderCats();
+  }
+
+  /* ---------- 라벨·이름 찾기 ---------- */
+  function matchLabel(text) {
+    const exact = new Map();
+    const cands = [];
+    for (const line of String(text).split("\n")) {
+      cands.push(...(line.match(/\d{6,13}/g) || []));
+      cands.push(...(line.replace(/[\s.\-]/g, "").match(/\d{6,13}/g) || []));
+    }
+    for (const c of cands) if (codeMap.has(c)) exact.set(codeMap.get(c), c);
+    const T = norm(text);
+    const scored = [];
+    DB.products.forEach((p, i) => {
+      let hit = 0, n = 0;
+      for (const t of p._tok) if (T.includes(t)) { hit += idf.get(t); n++; }
+      if (!n) return;
+      let score = (hit * hit) / p._w;
+      if (p.price && T.includes(String(p.price))) score *= 1.4;
+      const cover = hit / p._w;
+      if (cover >= 0.45 || n >= 3) scored.push({ i, score, cover });
+    });
+    scored.sort((a, b) => b.score - a.score);
+    const out = [];
+    exact.forEach((code, i) => out.push({ p: DB.products[i], why: "코드 " + code + " 일치", exact: true }));
+    for (const s of scored) {
+      if (out.length >= 6) break;
+      if (exact.has(s.i)) continue;
+      out.push({ p: DB.products[s.i], why: "이름 " + Math.round(s.cover * 100) + "% 일치", exact: false });
+    }
+    return out;
+  }
+  function searchName(q) {
+    const nq = norm(q);
+    if (nq.length < 2) return [];
+    const qt = toks(q);
+    const out = [];
+    DB.products.forEach((p) => {
+      let score = 0;
+      if (p._norm.includes(nq)) score = 100;
+      else {
+        const hits = qt.filter((t) => p._norm.includes(t)).length;
+        if (qt.length && hits === qt.length) score = 60;
+        else if (qt.length >= 2 && hits >= 2) score = 20 * hits / qt.length;
+      }
+      if (/^\d{4,}$/.test(nq) && arr(p.codes).some((c) => String(c).startsWith(nq))) score = 120;
+      if (score >= 20) out.push({ p, score });
+    });
+    out.sort((a, b) => b.score - a.score || (b.p.reviews || 0) - (a.p.reviews || 0));
+    return out.slice(0, 20).map((o) => ({ p: o.p, why: "" }));
+  }
+
+  /* ---------- 고객 질문 → 추천 (기기 안에서 규칙으로 계산) ---------- */
+  const KINDS = [
+    { q: /양말/, p: /양말/, name: "러닝 양말" },
+    { q: /신발|러닝화|운동화|레이싱화|슈즈/, p: /러닝화|레이싱화/, name: "러닝화" },
+    { q: /반바지|쇼츠|숏츠/, p: /쇼츠|반바지/, name: "러닝 쇼츠" },
+    { q: /타이츠|레깅스/, p: /타이츠|레깅스/, name: "러닝 타이츠" },
+    { q: /바지|팬츠|하의/, p: /하의|바지|팬츠/, name: "러닝 바지", unless: /반바지/ },
+    { q: /반팔|티셔츠|반소매/, p: /반팔/, name: "반팔 티" },
+    { q: /긴팔|긴소매/, p: /긴팔/, name: "긴팔 티" },
+    { q: /싱글렛|나시|민소매/, p: /싱글렛|민소매|탱크/, name: "싱글렛" },
+    { q: /상의|윗옷/, p: /상의/, name: "러닝 상의" },
+    { q: /자켓|재킷|바람막이|아우터|점퍼|패딩/, p: /아우터|자켓|재킷|패딩/, name: "러닝 자켓" },
+    { q: /모자|캡|비니|바이저/, p: /모자|캡|비니|바이저/, name: "러닝 모자" },
+    { q: /장갑/, p: /장갑/, name: "러닝 장갑" },
+    { q: /벨트|암밴드|허리 ?가방|힙색/, p: /벨트|암밴드/, name: "러닝 벨트" },
+    { q: /조끼|베스트|배낭|가방/, p: /베스트|가방/, name: "러닝 베스트·가방" },
+    { q: /물병|물통|플라스크/, p: /물병|플라스크|보틀/, name: "물병" },
+    { q: /헤드밴드|넥워머|귀마개/, p: /헤드밴드|넥워머/, name: "헤드밴드·넥워머" },
+    { q: /브라/, p: /브라/, name: "스포츠 브라" },
+    { q: /속옷|팬티|언더웨어/, p: /언더웨어|브리프|팬티|박서/, name: "러닝 속옷" },
+    { q: /라이트|랜턴|헤드램프|헤드랜턴/, p: /라이트|헤드램프|랜턴/, name: "러닝 라이트", nameOnly: true },
+    { q: /시계|워치/, p: /시계|워치/, name: "러닝 시계" },
+    { q: /인솔|깔창/, p: /인솔|깔창/, name: "인솔" },
+    { q: /선글라스|고글/, p: /선글라스/, name: "선글라스" },
+  ];
+  const NEEDS = [
+    { q: /뒤꿈치|발바닥|충격|무릎|관절|아프|아파|통증|족저/, p: /쿠션|쿠셔닝|충격|두툼|패드/, label: "발과 관절의 충격 부담", reason: "쿠션이 착지할 때 충격을 덜어 주는", care: true },
+    { q: /물집|쓸리|쓸림|마찰|까지|까져/, p: /물집|마찰|심리스|봉제선|솔기|플랫/, label: "물집과 쓸림", reason: "마찰을 줄이도록 만든" },
+    { q: /땀|더위|더운|여름|덥|통풍|시원/, p: /통기|흡습|속건|메쉬|통풍|땀|시원|환기/, label: "땀과 더위", reason: "땀이 빨리 마르고 통풍이 되는" },
+    { q: /추위|추운|겨울|춥|보온|따뜻/, p: /보온|따뜻|기모|웜|방한|플리스/, label: "추운 날씨", reason: "보온이 되는" },
+    { q: /비 ?[오올온와]|비가|비에|비를|빗|우천|우중|방수|발수|장마|젖/, p: /방수|발수|워터프루프/, label: "비 오는 날", reason: "비를 막아 주는" },
+    { q: /바람|방풍/, p: /방풍|바람막이|바람을/, label: "바람", reason: "바람을 막아 주는" },
+    { q: /초보|입문|처음|시작/, p: /초보|입문|초급|처음/, label: "러닝 입문", reason: "처음 시작하는 분께 맞춘" },
+    { q: /마라톤|장거리|풀코스|하프|대회|기록|레이스/, p: /마라톤|장거리|레이스|대회|시합|카본/, label: "장거리와 대회", reason: "장거리와 대회에 맞춘" },
+    { q: /가벼|경량|무게/, p: /가벼|경량|초경량/, label: "가벼운 무게", reason: "무게가 가벼운" },
+    { q: /발볼|넓/, p: /발볼|와이드|넓/, label: "발볼", reason: "발볼을 고려한" },
+    { q: /안정|발목|접질|평발|내전/, p: /안정|지지|서포트|고정/, label: "안정감", reason: "발을 안정적으로 잡아 주는", care: true },
+    { q: /트레일|산길|등산|흙길|오프로드|산에서/, p: /트레일|접지|그립|러그/, label: "산길과 트레일", reason: "미끄러운 길에서 접지가 좋은" },
+    { q: /밤|야간|새벽|어두/, p: /반사|야간|가시성|리플렉|라이트/, label: "야간 러닝", reason: "어두운 곳에서 눈에 잘 띄는" },
+    { q: /휴대폰|핸드폰|폰|열쇠|수납|주머니|포켓|카드/, p: /포켓|주머니|수납|스마트폰|휴대폰/, label: "소지품 수납", reason: "소지품을 넣을 수 있는" },
+    { q: /수분|급수|마실|물 ?마/, p: /물병|플라스크|하이드레이션|수분|급수/, label: "수분 보충", reason: "달리면서 물을 챙길 수 있는" },
+    { q: /햇빛|자외선|햇볕|타는|선크림/, p: /자외선|UV|UPF|차단/, label: "자외선", reason: "자외선을 막아 주는" },
+    { q: /종아리|쥐가|회복|압박|컴프레션|붓/, p: /압박|컴프레션|종아리|회복/, label: "종아리 부담", reason: "종아리를 잡아 주는", care: true },
+    { q: /흔들|가슴/, p: /흔들림|서포트|지지/, label: "흔들림", reason: "달릴 때 흔들림을 줄여 주는" },
+    { q: /조깅|매일|데일리|가볍게|산책|워킹|걷/, p: /조깅|데일리|매일|다용도|워킹/, label: "가벼운 조깅", reason: "가벼운 조깅에 편하게 쓰는" },
+    { q: /빠르|스피드|인터벌|템포/, p: /스피드|반발|추진|템포|빠른/, label: "빠른 훈련", reason: "속도를 낼 때 반응이 좋은" },
+    { q: /냄새|항균/, p: /냄새|항균|방취/, label: "냄새", reason: "냄새를 줄이도록 처리한" },
+    { q: /편한|편안|푹신|부드러/, p: /편안|푹신|부드러|쿠션/, label: "편안한 착용감", reason: "착용감이 편안한" },
+  ];
+  const count = (re, s) => (s.match(new RegExp(re.source, "g")) || []).length;
+
+  function recommend(query) {
+    const q = String(query);
+    let kinds = KINDS.filter((k) => k.q.test(q) && !(k.unless && k.unless.test(q)));
+    if (kinds.some((k) => /쇼츠/.test(k.name))) kinds = kinds.filter((k) => k.name !== "러닝 바지");
+    const needs = NEEDS.filter((n) => n.q.test(q));
+    const cheap = /저렴|싼|싸게|가성비|저가|예산/.test(q);
+    const m = q.match(/(\d+)\s*만\s*원?/);
+    const cap = m ? Number(m[1]) * 10000 * 1.1 : 0;
+    const gender = /남성|남자|남편|아들|아빠/.test(q) ? "남성" : /여성|여자|아내|딸|엄마|와이프/.test(q) ? "여성" : "";
+    const kid = /아이|아동|어린이|키즈|주니어/.test(q);
+    if (!kinds.length && !needs.length) return null;
+
+    let pool = DB.products.filter((p) => {
+      if (kinds.length && !kinds.some((k) => k.p.test(k.nameOnly ? str(p.name) : p._kind))) return false;
+      if (gender && str(p.gender) && !str(p.gender).includes(gender)) return false;
+      if (kid !== /아동|주니어|키즈/.test(str(p.name) + str(p.gender))) return false;
+      if (cap && p.price > cap) return false;
+      return !!p.price;
+    });
+    let direct = true;
+    let scored = pool.map((p) => {
+      let s = 0;
+      const hits = [];
+      for (const n of needs) {
+        const c = Math.min(4, count(n.p, p._hi)) * 3 + Math.min(3, count(n.p, p._lo));
+        if (c) { s += c; hits.push(n); }
+      }
+      return { p, s, hits };
+    });
+    if (needs.length) {
+      const withHit = scored.filter((x) => x.s > 0);
+      if (withHit.length) scored = withHit; else direct = false;
+    }
+    scored.sort((a, b) => b.hits.length - a.hits.length || b.s - a.s || (cheap ? a.p.price - b.p.price : 0) || (b.p.reviews || 0) - (a.p.reviews || 0));
+    if (cheap && !needs.length) scored.sort((a, b) => a.p.price - b.p.price);
+    return { kinds, needs, direct, cheap, list: scored.slice(0, 3) };
+  }
+
+  function recCard(x, i, ctx) {
+    const p = x.p;
+    const card = el("article", "rec");
+    const head = el("div", "head");
+    const hl = el("div");
+    hl.append(el("p", "rank", "추천 " + (i + 1)), el("h3", null, str(p.name)));
+    head.append(hl, el("p", "price", priceOf(p)));
+    card.append(head);
+
+    const hits = x.hits.length ? x.hits : [];
+    let sayText;
+    if (hits.length) {
+      const labels = hits.map((h) => h.label).join(", ");
+      sayText = "말씀하신 " + labels + "에는, " + hits[0].reason + " 이 제품을 추천드립니다.";
+    } else if (p.rating) {
+      sayText = "많이 찾으시는 " + (ctx.kinds[0] ? ctx.kinds[0].name : "제품") + "입니다. 고객 평점 " + p.rating + "점으로 만족도가 높아 추천드립니다.";
+    } else {
+      sayText = "찾으시는 조건에 가까운 " + (ctx.kinds[0] ? ctx.kinds[0].name : "제품") + "이라 추천드립니다.";
+    }
+    const say = el("p", "say");
+    say.append(el("small", null, "고객님께 이렇게 말씀하세요"), document.createTextNode(sayText));
+    card.append(say);
+
+    const reasons = [];
+    for (const kp of arr(p.key_points)) {
+      if (reasons.length >= 3) break;
+      if (!hits.length || hits.some((h) => h.p.test(kp))) reasons.push(str(kp));
+    }
+    if (!reasons.length) reasons.push(...arr(p.key_points).slice(0, 2).map(str));
+    if (reasons.length) {
+      card.append(el("p", "lab", "추천 이유"));
+      const ul = el("ul", "why");
+      reasons.forEach((r) => ul.append(el("li", null, r)));
+      card.append(ul);
+    }
+    if (hits.some((h) => h.care)) card.append(el("p", "note", "통증이나 부상에 대해서는 치료나 예방 효과를 약속하지 마세요. 통증이 계속되면 병원 진료를 권해 드리세요."));
+
+    const row = el("div", "row");
+    const cp = el("button", "line", "멘트 복사");
+    cp.type = "button";
+    cp.onclick = () => copyText(sayText + " " + reasons.join(". ") + ". 가격은 " + priceOf(p) + "입니다.", cp, "멘트 복사");
+    const go = el("button", "primary", "제품 자세히 보기");
+    go.type = "button";
+    go.style.minHeight = "44px";
+    go.onclick = () => openProduct(p);
+    row.append(go, cp);
+    card.append(row);
+    return card;
+  }
+
+  function runSearch(q) {
+    const rec = recommend(q);
+    const names = searchName(q);
+    const rb = $("recBlock");
+    if (rec && rec.list.length && !(names.length && names[0] && norm(q).length <= 12 && !rec.needs.length && names.length <= 3 && false)) {
+      rb.hidden = false;
+      const parts = [];
+      if (rec.kinds.length) parts.push("찾는 제품: " + rec.kinds.map((k) => k.name).join(", "));
+      if (rec.needs.length) parts.push("고객 고민: " + rec.needs.map((n) => n.label).join(", "));
+      if (rec.cheap) parts.push("가격 우선");
+      let sub = parts.join(" · ");
+      if (!rec.direct) sub += " · 이 고민이 자료에 직접 적힌 제품이 없어 인기 순으로 보여 드립니다";
+      $("recSub").textContent = sub;
+      const box = $("recs");
+      box.replaceChildren();
+      rec.list.forEach((x, i) => box.append(recCard(x, i, rec)));
+    } else if (rec && !rec.list.length) {
+      rb.hidden = false;
+      $("recSub").textContent = "조건에 맞는 제품을 자료에서 찾지 못했습니다. 조건을 줄여서 다시 입력해 보세요.";
+      $("recs").replaceChildren();
+    } else {
+      rb.hidden = true;
+    }
+    const isQuestion = !!(rec && rec.needs.length);
+    if (names.length && !isQuestion) showResults("이름으로 찾은 제품", names);
+    else if (!rec) showResults("검색 결과", names);
+    else $("resBlock").hidden = true;
+  }
+
+  /* ---------- 목록 ---------- */
+  function itemRow(p, why) {
+    const b = el("button", "item");
+    b.type = "button";
+    const nm = el("span", "nm");
+    nm.append(el("span", null, str(p.name)));
+    nm.append(el("small", null, [str(p.brand), str(p.cat), why].filter(Boolean).join(" · ")));
+    b.append(nm, el("span", "pr", priceOf(p)));
+    b.onclick = () => openProduct(p);
+    return b;
+  }
+  function showResults(title, rows) {
+    $("resBlock").hidden = false;
+    $("resTitle").textContent = title;
+    const box = $("res");
+    box.replaceChildren();
+    if (!rows.length) box.append(el("p", "sub", "맞는 제품이 없습니다. 제품명의 일부나 모델 코드, 또는 고객 질문을 입력해 보세요."));
+    rows.forEach((r) => box.append(itemRow(r.p, r.why)));
+  }
+  function renderCats() {
+    const counts = new Map();
+    DB.products.forEach((p) => { const g = str(p.group) || "기타"; counts.set(g, (counts.get(g) || 0) + 1); });
+    const box = $("cats");
+    box.replaceChildren();
+    [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([g, n]) => {
+      const b = el("button", null, g + " " + n);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(activeCat === g));
+      b.onclick = () => { activeCat = activeCat === g ? "" : g; renderCats(); };
+      box.append(b);
+    });
+    const list = $("catList");
+    list.replaceChildren();
+    if (activeCat) {
+      DB.products.filter((p) => (str(p.group) || "기타") === activeCat).sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 250).forEach((p) => list.append(itemRow(p, "")));
+    }
+  }
+  function setStatus(msg, isErr) {
+    const s = $("status");
+    s.hidden = !msg;
+    s.className = "status" + (isErr ? " err" : "");
+    s.textContent = msg || "";
+  }
+
+  /* ---------- 제품 화면: 맨 위에 바로 말할 첫마디 ---------- */
+  function renderRich(text) {
+    const box = el("div", "rich");
+    let ul = null;
+    for (const raw of String(text).split("\n")) {
+      const line = raw.replace(/\*\*/g, "").trim();
+      if (!line) { ul = null; continue; }
+      if (/^#{1,4}\s+/.test(line)) { ul = null; box.append(el("h4", null, line.replace(/^#{1,4}\s+/, ""))); continue; }
+      if (/^[-•]\s+/.test(line)) { if (!ul) { ul = el("ul"); box.append(ul); } ul.append(el("li", null, line.replace(/^[-•]\s+/, ""))); continue; }
+      ul = null;
+      box.append(el("p", null, line));
+    }
+    return box;
+  }
+  const bullets = (items, cls) => { const ul = el("ul", "why" + (cls ? " " + cls : "")); arr(items).forEach((t) => { if (str(t)) ul.append(el("li", null, str(t))); }); return ul; };
+  function acc(id, title, preview) {
+    const d = el("details", "acc");
+    d.id = id;
+    const s = el("summary");
+    s.append(el("span", "t", title));
+    if (str(preview)) s.append(el("span", "pv", str(preview)));
+    const body = el("div", "body");
+    d.append(s, body);
+    return { d, body };
+  }
+  function more(body, text) { if (str(text)) { body.append(el("p", "lab", "자세한 설명"), renderRich(text)); } }
+
+  function openProduct(d) {
+    const root = $("result");
+    root.replaceChildren();
+    const det = d.details || {};
+
+    const head = el("div", "phead");
+    const hl = el("div");
+    hl.append(el("p", "tag", [str(d.brand), str(d.gender)].filter(Boolean).join(" · ")), el("h2", null, str(d.name)));
+    const hr = el("div");
+    hr.style.textAlign = "right";
+    hr.append(el("p", "price", priceOf(d)));
+    if (d.rating) hr.append(el("p", "sub", "평점 " + d.rating + " (" + (d.reviews || 0) + ")"));
+    head.append(hl, hr);
+    root.append(head);
+
+    const sentences = str(d.script).split(/(?<=[.?])\s+/).map((s) => s.trim()).filter(Boolean);
+    const first = sentences[0] || str(d.pitch);
+    if (first) {
+      const say = el("p", "say");
+      say.style.fontSize = "21px";
+      say.append(el("small", null, "첫마디 · 이렇게 추천하세요"), document.createTextNode(first));
+      root.append(say);
+    }
+    if (arr(d.key_points).length) {
+      root.append(el("p", "lab", "핵심 3가지"));
+      root.append(bullets(arr(d.key_points).slice(0, 3)));
+    }
+    if (sentences.length > 1) {
+      root.append(el("p", "lab", "이어서 말하기"));
+      const ul = el("ul", "next");
+      sentences.slice(1).forEach((s) => ul.append(el("li", null, s)));
+      root.append(ul);
+    }
+    if (str(d.target_customer)) { root.append(el("p", "lab", "이런 고객에게"), el("p", null, str(d.target_customer))); }
+    if (str(d.script)) {
+      const cp = el("button", "line", "멘트 전체 복사");
+      cp.type = "button";
+      cp.style.alignSelf = "flex-start";
+      cp.onclick = () => copyText(str(d.script), cp, "멘트 전체 복사");
+      root.append(cp);
+    }
+
+    const jump = el("div", "jump");
+    const sections = [];
+    const addJump = (label, a) => {
+      const b = el("button", null, label);
+      b.type = "button";
+      b.onclick = () => { a.d.open = true; a.d.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      jump.append(b);
+      sections.push(a.d);
+    };
+
+    const L = d.vs_leader;
+    if (L && str(L.rival)) {
+      const a = acc("s-leader", "타 브랜드 대표 제품과 비교", str(L.rival) + (str(L.rival_price) ? " · " + str(L.rival_price) : ""));
+      a.body.append(el("p", "lab", "이 제품이 나은 점"), bullets(L.wins));
+      if (arr(L.loses).length) a.body.append(el("p", "lab", "고객이 물으면 · 상대가 나은 점"), bullets(L.loses, "minus"));
+      more(a.body, det.leader);
+      addJump("타 브랜드", a);
+    }
+    const T = arr(d.vs_trending).filter((t) => t && str(t.rival));
+    if (T.length) {
+      const a = acc("s-trend", "요즘 유행 제품과 비교", T.map((t) => str(t.rival)).join(", "));
+      T.forEach((t) => {
+        a.body.append(el("h3", null, str(t.rival) + (str(t.rival_price) ? " · " + str(t.rival_price) : "")));
+        if (str(t.why_trending)) a.body.append(el("p", "sub", str(t.why_trending)));
+        a.body.append(bullets(t.wins));
+      });
+      more(a.body, det.trending);
+      addJump("유행 제품", a);
+    }
+    const S = arr(d.in_store).filter((s) => s && str(s.name));
+    if (S.length) {
+      const a = acc("s-store", "매장 안 다른 제품과 비교", S.filter((s) => !s.is_this).map((s) => str(s.name)).slice(0, 2).join(", "));
+      S.forEach((s) => {
+        const box = el("div", "alt" + (s.is_this ? " me" : ""));
+        const h = el("div", "phead");
+        h.append(el("h3", null, (s.is_this ? "이 제품 · " : "") + str(s.name)), el("p", "price", str(s.price)));
+        h.lastChild.style.fontSize = "18px";
+        box.append(h);
+        const dl = el("dl", "kv");
+        if (str(s.performance)) dl.append(el("dt", null, "성능"), el("dd", null, str(s.performance)));
+        if (str(s.material)) dl.append(el("dt", null, "재질"), el("dd", null, str(s.material)));
+        if (str(s.verdict)) dl.append(el("dt", null, "판정"), el("dd", null, str(s.verdict)));
+        box.append(dl);
+        if (s.id && !s.is_this) {
+          const target = DB.products.find((p) => p.id === s.id);
+          if (target) { const go = el("button", "line", "이 제품 보기"); go.type = "button"; go.style.alignSelf = "flex-start"; go.onclick = () => openProduct(target); box.append(go); }
+        }
+        a.body.append(box);
+      });
+      more(a.body, det.store);
+      addJump("매장 비교", a);
+    }
+    const O = arr(d.objections).filter((o) => o && str(o.customer));
+    if (O.length) {
+      const a = acc("s-obj", "고객이 망설일 때", "“" + str(O[0].customer) + "”");
+      O.forEach((o) => { const box = el("div", "alt"); box.append(el("p", "sub", "고객: " + str(o.customer)), el("p", null, str(o.answer))); a.body.append(box); });
+      addJump("반론 대응", a);
+    }
+    const X = arr(d.cross_sell).filter((x) => x && str(x.name));
+    if (X.length) {
+      const a = acc("s-cross", "함께 권할 제품", X.map((x) => str(x.name)).join(", "));
+      const dl = el("dl", "kv");
+      X.forEach((x) => dl.append(el("dt", null, str(x.name)), el("dd", null, str(x.why))));
+      a.body.append(dl);
+      addJump("함께 권하기", a);
+    }
+    {
+      const a = acc("s-spec", "사양과 제품 설명", arr(d.specs).slice(0, 2).map((s) => str(s.label) + " " + str(s.value)).join(" · "));
+      if (arr(d.specs).length) { const dl = el("dl", "kv"); arr(d.specs).forEach((s) => { if (s && str(s.label)) dl.append(el("dt", null, str(s.label)), el("dd", null, str(s.value))); }); a.body.append(dl); }
+      if (arr(d.colors).length) a.body.append(el("p", "sub", "색상: " + arr(d.colors).join(" / ")));
+      more(a.body, det.product);
+      addJump("사양", a);
+    }
+    const cav = arr(d.caveats).filter((t) => str(t));
+    if (cav.length) {
+      const a = acc("s-cav", "안내 전 확인할 것", cav.length + "가지");
+      const ul = el("ul", "why minus");
+      cav.forEach((t) => ul.append(el("li", null, str(t))));
+      a.body.append(ul);
+      addJump("확인할 것", a);
+    }
+    root.append(jump);
+    sections.forEach((s) => root.append(s));
+
+    $("home").hidden = true;
+    $("detail").hidden = false;
+    window.scrollTo(0, 0);
+  }
+  function goHome() { $("detail").hidden = true; $("home").hidden = false; }
+  $("backBtn").onclick = goHome;
+  window.__back = () => { if (!$("detail").hidden) { goHome(); return true; } return false; };
+
+  /* ---------- 촬영·검색·업데이트 ---------- */
+  $("scanBtn").onclick = () => { if (N) N.scan(); else setStatus("카메라는 앱에서만 쓸 수 있습니다.", true); };
+  $("pickBtn").onclick = () => { if (N) N.pick(); else setStatus("사진 선택은 앱에서만 쓸 수 있습니다.", true); };
+  window.__scanStart = () => { goHome(); setStatus("라벨 글자를 읽는 중입니다…"); };
+  window.__scan = (text) => {
+    if (text == null || !str(text)) { setStatus("글자를 읽지 못했습니다. 라벨에 더 가까이, 밝은 곳에서 다시 찍어 주세요.", true); return; }
+    $("ocrBox").hidden = false;
+    $("ocrText").textContent = text;
+    $("recBlock").hidden = true;
+    const rows = matchLabel(text);
+    const exact = rows.filter((r) => r.exact);
+    if (exact.length === 1) { setStatus("코드가 일치하는 제품을 찾았습니다."); showResults("찾은 제품", rows); openProduct(exact[0].p); return; }
+    if (rows.length === 1) { setStatus("제품을 찾았습니다."); showResults("찾은 제품", rows); openProduct(rows[0].p); return; }
+    if (!rows.length) { setStatus("자료에서 맞는 제품을 찾지 못했습니다. 검색창에 제품명을 입력해 보세요.", true); showResults("찾은 제품", []); return; }
+    setStatus("이 중 맞는 제품을 눌러 주세요.");
+    showResults("이 제품이 맞나요?", rows);
+  };
+  let timer = null;
+  const onQuery = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const q = $("q").value;
+      if (norm(q).length < 2) { $("recBlock").hidden = true; $("resBlock").hidden = true; return; }
+      runSearch(q);
+    }, 200);
+  };
+  $("q").addEventListener("input", onQuery);
+  ["발뒤꿈치가 아픈데 양말 추천", "처음 달리는데 러닝화 5만원 이하", "비 올 때 입을 자켓", "여름에 시원한 반팔", "휴대폰 넣고 뛸 벨트"].forEach((ex) => {
+    const b = el("button", null, ex);
+    b.type = "button";
+    b.onclick = () => { $("q").value = ex; runSearch(ex); };
+    $("examples").append(b);
+  });
+
+  const UPD = { checking: "새 자료가 있는지 확인하는 중입니다…", updated: "새 자료로 업데이트했습니다.", latest: "최신 자료입니다.", offline: "지금은 확인할 수 없어 저장된 자료를 사용합니다." };
+  window.__updateStatus = (s) => {
+    const m = $("updMsg");
+    m.hidden = false;
+    m.textContent = UPD[s] || "";
+    if (s === "updated") loadData();
+    if (s !== "checking") setTimeout(() => { m.hidden = true; }, 4000);
+  };
+  $("upd").onclick = () => { if (N) N.refresh(); };
+
+  loadData();
+})();
+</script>
+</body>
+</html>
