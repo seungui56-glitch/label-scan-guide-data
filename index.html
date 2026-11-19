@@ -81,6 +81,10 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .phead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .phead h2 { font-size: 21px; }
 .price { font-size: 24px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pick { border: 3px solid var(--accent); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.pick p { font-size: 18px; font-weight: 500; }
+.tryit { background: var(--band); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.tryit p { font-size: 17px; }
 .next li { font-size: 18px; padding: 8px 0; border-top: 1.5px solid var(--line); }
 .next li:first-child { border-top: 0; }
 .jump { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
@@ -387,6 +391,12 @@ footer { font-size: 14px; color: var(--sub); }
       if (reasons.length >= 3) break;
       if (!hits.length || hits.some((h) => h.p.test(kp))) reasons.push(str(kp));
     }
+    if (p.easy) {
+      const plain = p.easy.points.filter((t) => hits.some((h) => h.p.test(t)));
+      reasons.length = 0;
+      reasons.push(...(plain.length ? plain : p.easy.points.slice(0, 2)));
+      if (p.easy.better) reasons.push(p.easy.better);
+    }
     if (!reasons.length) reasons.push(...arr(p.key_points).slice(0, 2).map(str));
     if (reasons.length) {
       card.append(el("p", "lab", "추천 이유"));
@@ -527,29 +537,24 @@ footer { font-size: 14px; color: var(--sub); }
     if (sb) { const w = el("div"); w.append(sb); root.append(w); }
 
     const sentences = str(d.script).split(/(?<=[.?])\s+/).map((s) => s.trim()).filter(Boolean);
-    const first = sentences[0] || str(d.pitch);
-    if (first) {
-      const say = el("p", "say");
-      say.style.fontSize = "21px";
-      say.append(el("small", null, "첫마디 · 이렇게 추천하세요"), document.createTextNode(first));
-      root.append(say);
+    const E = d.easy || null;
+    const pts = E ? E.points : arr(d.key_points).slice(0, 3);
+    if (pts.length) {
+      const box = el("div", "say");
+      box.append(el("small", null, "좋은 점 3가지 · 이렇게 말씀하세요"));
+      pts.forEach((t, n) => { const line = el("p", null, (n + 1) + ". " + str(t)); line.style.cssText = "margin:6px 0 0;font-size:20px;font-weight:700;line-height:1.45"; box.append(line); });
+      root.append(box);
     }
-    if (arr(d.key_points).length) {
-      root.append(el("p", "lab", "핵심 3가지"));
-      root.append(bullets(arr(d.key_points).slice(0, 3)));
+    if (E && E.better) {
+      const box = el("div", "pick");
+      box.append(el("p", "lab", "비슷한 제품 중 이게 좋은 이유"), el("p", null, E.better));
+      root.append(box);
     }
-    if (sentences.length > 1) {
-      root.append(el("p", "lab", "이어서 말하기"));
-      const ul = el("ul", "next");
-      sentences.slice(1).forEach((s) => ul.append(el("li", null, s)));
-      root.append(ul);
-    }
-    if (str(d.target_customer)) { root.append(el("p", "lab", "이런 고객에게"), el("p", null, str(d.target_customer))); }
-    if (str(d.script)) {
-      const cp = el("button", "line", "멘트 전체 복사");
+    if (E) {
+      const cp = el("button", "line", "멘트 복사");
       cp.type = "button";
       cp.style.alignSelf = "flex-start";
-      cp.onclick = () => copyText(str(d.script), cp, "멘트 전체 복사");
+      cp.onclick = () => copyText(E.points.concat([E.better]).join(" "), cp, "멘트 복사");
       root.append(cp);
     }
 
@@ -563,6 +568,13 @@ footer { font-size: 14px; color: var(--sub); }
       sections.push(a.d);
     };
 
+    if (str(d.script) || arr(d.key_points).length) {
+      const a = acc("s-script", "자세한 설명 멘트", "더 궁금해하는 고객에게");
+      if (sentences.length) { const ul = el("ul", "next"); sentences.forEach((x) => ul.append(el("li", null, x))); a.body.append(ul); }
+      if (arr(d.key_points).length) a.body.append(el("p", "lab", "전문 설명"), bullets(d.key_points));
+      if (str(d.target_customer)) a.body.append(el("p", "lab", "이런 고객에게"), el("p", null, str(d.target_customer)));
+      addJump("자세한 멘트", a);
+    }
     const L = d.vs_leader;
     if (L && str(L.rival)) {
       const a = acc("s-leader", "타 브랜드 대표 제품과 비교", str(L.rival) + (str(L.rival_price) ? " · " + str(L.rival_price) : ""));
