@@ -48,6 +48,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .shoot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .shoot button { min-height: 64px; font-size: 18px; }
 .status { font-size: 16px; font-weight: 700; padding: 10px 12px; border-radius: 10px; background: var(--band); }
+.badge { display: inline-block; font-size: 14px; font-weight: 800; padding: 2px 10px; border-radius: 999px; border: 2px solid var(--good); color: var(--good); }
+.badge.no { border-color: var(--bad); color: var(--bad); }
+.badge.unk { border-color: var(--sub); color: var(--sub); }
+.toggle { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; min-height: 44px; }
+.toggle input { width: 26px; height: 26px; accent-color: var(--accent); }
 .status.err { background: var(--warn-bg); color: var(--warn-ink); }
 .block { display: flex; flex-direction: column; gap: 10px; }
 .list { display: flex; flex-direction: column; }
@@ -119,6 +124,8 @@ footer { font-size: 14px; color: var(--sub); }
       <div class="examples" id="examples"></div>
     </section>
 
+    <label class="toggle" id="gyWrap" hidden><input type="checkbox" id="gy"><span id="gyLabel">고양점에서 파는 제품만 보기</span></label>
+
     <section class="shoot" aria-label="라벨 스캔">
       <button class="primary" id="scanBtn" type="button">라벨 촬영</button>
       <button id="pickBtn" type="button">사진 선택</button>
@@ -171,6 +178,15 @@ footer { font-size: 14px; color: var(--sub); }
   let codeMap = new Map();
   let idf = new Map();
   let activeCat = "";
+  let onlyStore = true;
+  try { onlyStore = localStorage.getItem("lsg.onlyStore") !== "0"; } catch (_) {}
+  const inStore = (p) => !onlyStore || !DB.store || p.goyang === 1;
+  const storeBadge = (p) => {
+    if (!DB.store) return null;
+    if (p.goyang === 1) return el("span", "badge", "고양점 판매");
+    if (p.goyang === 0) return el("span", "badge no", "고양점 미판매");
+    return el("span", "badge unk", "고양점 판매 여부 확인 안 됨");
+  };
 
   /* ---------- 자료 ---------- */
   async function loadData() {
@@ -194,7 +210,9 @@ footer { font-size: 14px; color: var(--sub); }
     idf = new Map();
     df.forEach((n, t) => idf.set(t, Math.log(DB.products.length / n) + 1));
     DB.products.forEach((p) => { p._w = p._tok.reduce((a, t) => a + idf.get(t), 0) || 1; });
-    $("ver").textContent = "자료 " + str(DB.version) + " · 제품 " + DB.products.length + "개";
+    $("ver").textContent = "자료 " + str(DB.version) + " · 제품 " + DB.products.length + "개" + (DB.store ? " · 고양점 판매 " + DB.products.filter((p) => p.goyang === 1).length + "개 (" + str(DB.store.checked) + " 확인)" : "");
+    $("gyWrap").hidden = !DB.store;
+    $("gy").checked = onlyStore;
     renderCats();
   }
 
@@ -234,6 +252,7 @@ footer { font-size: 14px; color: var(--sub); }
     const qt = toks(q);
     const out = [];
     DB.products.forEach((p) => {
+      if (!inStore(p)) return;
       let score = 0;
       if (p._norm.includes(nq)) score = 100;
       else {
@@ -316,6 +335,7 @@ footer { font-size: 14px; color: var(--sub); }
       if (gender && str(p.gender) && !str(p.gender).includes(gender)) return false;
       if (kid !== /아동|주니어|키즈/.test(str(p.name) + str(p.gender))) return false;
       if (cap && p.price > cap) return false;
+      if (!inStore(p)) return false;
       return !!p.price;
     });
     let direct = true;
@@ -345,6 +365,8 @@ footer { font-size: 14px; color: var(--sub); }
     hl.append(el("p", "rank", "추천 " + (i + 1)), el("h3", null, str(p.name)));
     head.append(hl, el("p", "price", priceOf(p)));
     card.append(head);
+    const sb = storeBadge(p);
+    if (sb && p.goyang !== 1) { const w = el("div"); w.append(sb); card.append(w); }
 
     const hits = x.hits.length ? x.hits : [];
     let sayText;
@@ -422,7 +444,7 @@ footer { font-size: 14px; color: var(--sub); }
     b.type = "button";
     const nm = el("span", "nm");
     nm.append(el("span", null, str(p.name)));
-    nm.append(el("small", null, [str(p.brand), str(p.cat), why].filter(Boolean).join(" · ")));
+    nm.append(el("small", null, [str(p.brand), str(p.cat), why, DB.store && p.goyang === 0 ? "고양점 미판매" : ""].filter(Boolean).join(" · ")));
     b.append(nm, el("span", "pr", priceOf(p)));
     b.onclick = () => openProduct(p);
     return b;
@@ -437,7 +459,7 @@ footer { font-size: 14px; color: var(--sub); }
   }
   function renderCats() {
     const counts = new Map();
-    DB.products.forEach((p) => { const g = str(p.group) || "기타"; counts.set(g, (counts.get(g) || 0) + 1); });
+    DB.products.filter(inStore).forEach((p) => { const g = str(p.group) || "기타"; counts.set(g, (counts.get(g) || 0) + 1); });
     const box = $("cats");
     box.replaceChildren();
     [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([g, n]) => {
@@ -450,7 +472,7 @@ footer { font-size: 14px; color: var(--sub); }
     const list = $("catList");
     list.replaceChildren();
     if (activeCat) {
-      DB.products.filter((p) => (str(p.group) || "기타") === activeCat).sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 250).forEach((p) => list.append(itemRow(p, "")));
+      DB.products.filter((p) => inStore(p) && (str(p.group) || "기타") === activeCat).sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 250).forEach((p) => list.append(itemRow(p, "")));
     }
   }
   function setStatus(msg, isErr) {
@@ -501,6 +523,8 @@ footer { font-size: 14px; color: var(--sub); }
     if (d.rating) hr.append(el("p", "sub", "평점 " + d.rating + " (" + (d.reviews || 0) + ")"));
     head.append(hl, hr);
     root.append(head);
+    const sb = storeBadge(d);
+    if (sb) { const w = el("div"); w.append(sb); root.append(w); }
 
     const sentences = str(d.script).split(/(?<=[.?])\s+/).map((s) => s.trim()).filter(Boolean);
     const first = sentences[0] || str(d.pitch);
@@ -648,6 +672,12 @@ footer { font-size: 14px; color: var(--sub); }
     }, 200);
   };
   $("q").addEventListener("input", onQuery);
+  $("gy").addEventListener("change", () => {
+    onlyStore = $("gy").checked;
+    try { localStorage.setItem("lsg.onlyStore", onlyStore ? "1" : "0"); } catch (_) {}
+    renderCats();
+    if (norm($("q").value).length >= 2) runSearch($("q").value);
+  });
   ["발뒤꿈치가 아픈데 양말 추천", "처음 달리는데 러닝화 5만원 이하", "비 올 때 입을 자켓", "여름에 시원한 반팔", "휴대폰 넣고 뛸 벨트"].forEach((ex) => {
     const b = el("button", null, ex);
     b.type = "button";
