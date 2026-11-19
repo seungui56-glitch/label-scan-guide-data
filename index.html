@@ -373,12 +373,14 @@ footer { font-size: 14px; color: var(--sub); }
     if (sb && p.goyang !== 1) { const w = el("div"); w.append(sb); card.append(w); }
 
     const hits = x.hits.length ? x.hits : [];
+    const D = p.diff || null;
     let sayText;
-    if (hits.length) {
-      const labels = hits.map((h) => h.label).join(", ");
-      sayText = "말씀하신 " + labels + "에는, " + hits[0].reason + " 이 제품을 추천드립니다.";
-    } else if (p.rating) {
-      sayText = "많이 찾으시는 " + (ctx.kinds[0] ? ctx.kinds[0].name : "제품") + "입니다. 고객 평점 " + p.rating + "점으로 만족도가 높아 추천드립니다.";
+    if (D && D.diff) {
+      sayText = (D.when ? D.when + "에 맞는 제품이에요. " : "") + D.diff;
+    } else if (p.easy) {
+      sayText = p.easy.hook + " " + (p.easy.better || "");
+    } else if (hits.length) {
+      sayText = "말씀하신 " + hits.map((h) => h.label).join(", ") + "에는, " + hits[0].reason + " 이 제품을 추천드립니다.";
     } else {
       sayText = "찾으시는 조건에 가까운 " + (ctx.kinds[0] ? ctx.kinds[0].name : "제품") + "이라 추천드립니다.";
     }
@@ -395,13 +397,20 @@ footer { font-size: 14px; color: var(--sub); }
       const plain = p.easy.points.filter((t) => hits.some((h) => h.p.test(t)));
       reasons.length = 0;
       reasons.push(...(plain.length ? plain : p.easy.points.slice(0, 2)));
-      if (p.easy.better) reasons.push(p.easy.better);
     }
     if (!reasons.length) reasons.push(...arr(p.key_points).slice(0, 2).map(str));
     if (reasons.length) {
       card.append(el("p", "lab", "추천 이유"));
       const ul = el("ul", "why");
       reasons.forEach((r) => ul.append(el("li", null, r)));
+      card.append(ul);
+    }
+    const others = ctx.list.map((o) => o.p).filter((o) => o.id !== p.id);
+    const cmp = D ? D.vs.filter((v) => others.some((o) => o.id === v.id)) : [];
+    if (cmp.length) {
+      card.append(el("p", "lab", "함께 추천된 제품과 다른 점"));
+      const ul = el("ul", "why");
+      cmp.forEach((v) => ul.append(el("li", null, v.text)));
       card.append(ul);
     }
     if (hits.some((h) => h.care)) card.append(el("p", "note", "통증이나 부상에 대해서는 치료나 예방 효과를 약속하지 마세요. 통증이 계속되면 병원 진료를 권해 드리세요."));
@@ -434,6 +443,16 @@ footer { font-size: 14px; color: var(--sub); }
       $("recSub").textContent = sub;
       const box = $("recs");
       box.replaceChildren();
+      if (rec.list.length > 1 && rec.list.every((x) => x.p.diff && x.p.diff.when)) {
+        const pick = el("div", "pick");
+        pick.append(el("p", "lab", "한눈에 고르기"));
+        rec.list.forEach((x) => {
+          const row = el("p");
+          row.append(el("b", null, x.p.diff.when), document.createTextNode(" → " + str(x.p.name) + " (" + priceOf(x.p) + ")"));
+          pick.append(row);
+        });
+        box.append(pick);
+      }
       rec.list.forEach((x, i) => box.append(recCard(x, i, rec)));
     } else if (rec && !rec.list.length) {
       rb.hidden = false;
@@ -545,7 +564,29 @@ footer { font-size: 14px; color: var(--sub); }
       pts.forEach((t, n) => { const line = el("p", null, (n + 1) + ". " + str(t)); line.style.cssText = "margin:6px 0 0;font-size:20px;font-weight:700;line-height:1.45"; box.append(line); });
       root.append(box);
     }
-    if (E && E.better) {
+    const D = d.diff || null;
+    if (D && (D.diff || D.vs.length)) {
+      const box = el("div", "pick");
+      box.append(el("p", "lab", "비슷한 제품과 다른 점"));
+      if (D.diff) box.append(el("p", null, D.diff));
+      D.vs.forEach((v) => {
+        const o = DB.products.find((q) => q.id === v.id);
+        if (!o) return;
+        const row = el("div", "alt");
+        const h = el("div", "phead");
+        const nm = el("h3", null, str(o.name));
+        const pr = el("p", "price", priceOf(o));
+        pr.style.fontSize = "17px";
+        h.append(nm, pr);
+        const go = el("button", "line", "이 제품 보기");
+        go.type = "button";
+        go.style.alignSelf = "flex-start";
+        go.onclick = () => openProduct(o);
+        row.append(h, el("p", null, v.text), go);
+        box.append(row);
+      });
+      root.append(box);
+    } else if (E && E.better) {
       const box = el("div", "pick");
       box.append(el("p", "lab", "비슷한 제품 중 이게 좋은 이유"), el("p", null, E.better));
       root.append(box);
@@ -554,7 +595,7 @@ footer { font-size: 14px; color: var(--sub); }
       const cp = el("button", "line", "멘트 복사");
       cp.type = "button";
       cp.style.alignSelf = "flex-start";
-      cp.onclick = () => copyText(E.points.concat([E.better]).join(" "), cp, "멘트 복사");
+      cp.onclick = () => copyText(E.points.concat([d.diff && d.diff.diff ? d.diff.diff : E.better]).join(" "), cp, "멘트 복사");
       root.append(cp);
     }
 
