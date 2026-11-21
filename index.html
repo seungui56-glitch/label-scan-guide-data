@@ -138,6 +138,7 @@ footer { font-size: 14px; color: var(--sub); }
       <div class="examples" id="examples"></div>
     </section>
 
+    <div class="cats" id="sports" hidden></div>
     <label class="toggle" id="gyWrap" hidden><input type="checkbox" id="gy"><span id="gyLabel">고양점에서 파는 제품만 보기</span></label>
 
     <section class="shoot" aria-label="라벨 스캔">
@@ -240,7 +241,31 @@ footer { font-size: 14px; color: var(--sub); }
   let activeCat = "";
   let onlyStore = true;
   try { onlyStore = localStorage.getItem("lsg.onlyStore") !== "0"; } catch (_) {}
-  const inStore = (p) => !onlyStore || !DB.store || p.goyang === 1;
+  let sport = "";
+  try { sport = localStorage.getItem("lsg.sport") || ""; } catch (_) {}
+  const inStore = (p) => (!sport || p.sport === sport) && (!onlyStore || !DB.store || p.goyang === 1);
+  function renderSports() {
+    const list = arr(DB.sports);
+    const box = $("sports");
+    box.hidden = list.length < 2;
+    box.replaceChildren();
+    if (list.length < 2) return;
+    if (sport && !list.includes(sport)) sport = "";
+    [""].concat(list).forEach((sp) => {
+      const b = el("button", null, sp || "전체");
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(sport === sp));
+      b.onclick = () => {
+        sport = sp;
+        try { localStorage.setItem("lsg.sport", sp); } catch (_) {}
+        activeCat = "";
+        renderSports();
+        renderCats();
+        if (norm($("q").value).length >= 2) runSearch($("q").value);
+      };
+      box.append(b);
+    });
+  }
   const storeBadge = (p) => {
     if (!DB.store) return null;
     if (p.goyang === 1) return el("span", "badge", "고양점 판매");
@@ -271,6 +296,7 @@ footer { font-size: 14px; color: var(--sub); }
     df.forEach((n, t) => idf.set(t, Math.log(DB.products.length / n) + 1));
     DB.products.forEach((p) => { p._w = p._tok.reduce((a, t) => a + idf.get(t), 0) || 1; });
     $("ver").textContent = "자료 " + str(DB.version) + " · 제품 " + DB.products.length + "개" + (DB.store ? " · 고양점 판매 " + DB.products.filter((p) => p.goyang === 1).length + "개 (" + str(DB.store.checked) + " 확인)" : "");
+    renderSports();
     $("gyWrap").hidden = !DB.store;
     $("gy").checked = onlyStore;
     renderCats();
@@ -330,7 +356,14 @@ footer { font-size: 14px; color: var(--sub); }
   /* ---------- 고객 질문 → 추천 (기기 안에서 규칙으로 계산) ---------- */
   const KINDS = [
     { q: /양말/, p: /양말/, name: "러닝 양말" },
-    { q: /신발|러닝화|운동화|레이싱화|슈즈/, p: /러닝화|레이싱화/, name: "러닝화" },
+    { q: /등산화|하이킹화|트레킹화|등산 ?신발|부츠/, p: /하이킹화|등산화|트레킹화|부츠/, name: "등산화" },
+    { q: /배낭|백팩|등산 ?가방/, p: /배낭|백팩/, name: "배낭" },
+    { q: /스틱|지팡이|폴대/, p: /스틱/, name: "등산 스틱" },
+    { q: /침낭|매트|야영/, p: /침낭|매트/, name: "침낭·매트" },
+    { q: /헤드램프|헤드랜턴|랜턴|손전등/, p: /헤드램프|랜턴|손전등/, name: "헤드램프", nameOnly: true },
+    { q: /패딩|다운|플리스|후리스/, p: /패딩|다운|플리스/, name: "패딩·플리스", nameOnly: true },
+    { q: /우비|판초|비옷/, p: /판초|우비|레인/, name: "우비", nameOnly: true },
+    { q: /신발|러닝화|운동화|레이싱화|슈즈/, p: /러닝화|레이싱화|하이킹화|등산화/, name: "신발" },
     { q: /반바지|쇼츠|숏츠/, p: /쇼츠|반바지/, name: "러닝 쇼츠" },
     { q: /타이츠|레깅스/, p: /타이츠|레깅스/, name: "러닝 타이츠" },
     { q: /바지|팬츠|하의/, p: /하의|바지|팬츠/, name: "러닝 바지", unless: /반바지/ },
@@ -364,7 +397,9 @@ footer { font-size: 14px; color: var(--sub); }
     { q: /가벼|경량|무게/, p: /가벼|경량|초경량/, label: "가벼운 무게", reason: "무게가 가벼운" },
     { q: /발볼|넓/, p: /발볼|와이드|넓/, label: "발볼", reason: "발볼을 고려한" },
     { q: /안정|발목|접질|평발|내전/, p: /안정|지지|서포트|고정/, label: "안정감", reason: "발을 안정적으로 잡아 주는", care: true },
-    { q: /트레일|산길|등산|흙길|오프로드|산에서/, p: /트레일|접지|그립|러그/, label: "산길과 트레일", reason: "미끄러운 길에서 접지가 좋은" },
+    { q: /트레일|산길|흙길|오프로드|산에서|미끄러|바위|돌길/, p: /트레일|접지|그립|러그|미끄럼/, label: "미끄러운 산길", reason: "미끄러운 길에서 접지가 좋은" },
+    { q: /당일|가벼운 산행|둘레길|뒷산|동네 ?산/, p: /당일|가벼운|입문|둘레길|평지/, label: "가벼운 당일 산행", reason: "가벼운 산행에 맞춘" },
+    { q: /종주|백패킹|1박|박배낭|장거리 산행|며칠/, p: /백패킹|트레킹|장거리|며칠|종주/, label: "긴 산행과 백패킹", reason: "오래 걷는 산행에 맞춘" },
     { q: /밤|야간|새벽|어두/, p: /반사|야간|가시성|리플렉|라이트/, label: "야간 러닝", reason: "어두운 곳에서 눈에 잘 띄는" },
     { q: /휴대폰|핸드폰|폰|열쇠|수납|주머니|포켓|카드/, p: /포켓|주머니|수납|스마트폰|휴대폰/, label: "소지품 수납", reason: "소지품을 넣을 수 있는" },
     { q: /수분|급수|마실|물 ?마/, p: /물병|플라스크|하이드레이션|수분|급수/, label: "수분 보충", reason: "달리면서 물을 챙길 수 있는" },
