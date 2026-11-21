@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>라벨 스캔 가이드</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="라벨 가이드">
+<meta name="theme-color" content="#0A4FB4">
 <style>
 /* 매장에서 서서 한 손으로 보는 화면: 흰 바탕, 검은 글씨, 강조색 하나, 큰 글씨. */
 :root {
@@ -56,11 +59,18 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .status.err { background: var(--warn-bg); color: var(--warn-ink); }
 .block { display: flex; flex-direction: column; gap: 10px; }
 .list { display: flex; flex-direction: column; }
-.item { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; background: var(--bg); border-top: 1.5px solid var(--line); border-radius: 0; padding: 12px 0; text-align: left; min-height: 0; font-weight: 700; }
+.item { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; width: 100%; background: var(--bg); border-top: 1.5px solid var(--line); border-radius: 0; padding: 12px 0; text-align: left; min-height: 0; font-weight: 700; }
 .item:first-child { border-top: 0; }
 .item .nm { display: flex; flex-direction: column; min-width: 0; }
 .item .nm small { color: var(--sub); font-weight: 400; font-size: 14px; }
 .item .pr { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.th { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--band); display: block; }
+.th.big { width: 76px; height: 76px; }
+.pimg { width: 100%; max-height: 300px; object-fit: contain; background: var(--band); border-radius: 12px; display: block; }
+.edit { border: 2px dashed var(--ink); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.edit label { font-size: 15px; font-weight: 800; }
+.edit input, .edit textarea { width: 100%; font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); }
+.edit textarea { min-height: 84px; resize: vertical; }
 .cats { display: flex; gap: 8px; flex-wrap: wrap; }
 .cats button { min-height: 44px; padding: 6px 14px; font-size: 16px; }
 .cats button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
@@ -148,6 +158,12 @@ footer { font-size: 14px; color: var(--sub); }
       <div class="list" id="res"></div>
     </section>
 
+    <section class="block" id="editBlock" hidden>
+      <h2 id="editCount">이 휴대폰에서 수정한 제품</h2>
+      <p class="sub">수정 내용은 이 휴대폰에만 저장됩니다. 목록을 복사해 관리자에게 보내면, 관리자가 반영한 뒤 모든 휴대폰에 업데이트됩니다.</p>
+      <div class="row"><button class="primary" id="editCopy" type="button" style="min-height:44px">수정 목록 복사</button></div>
+    </section>
+
     <section class="block" id="catBlock">
       <h2>종류별로 보기</h2>
       <div class="cats" id="cats"></div>
@@ -175,8 +191,48 @@ footer { font-size: 14px; color: var(--sub); }
   const norm = (s) => String(s).toLowerCase().replace(/[^0-9a-z가-힣]+/g, "");
   const toks = (s) => [...new Set(String(s).toLowerCase().split(/[^0-9a-z가-힣]+/).filter((t) => t.length >= 2))];
   const copyText = (text, btn, label) => {
-    try { N.copy(text); btn.textContent = "복사했습니다"; setTimeout(() => (btn.textContent = label), 1500); } catch (_) { btn.textContent = "앱에서만 복사됩니다"; setTimeout(() => (btn.textContent = label), 1500); }
+    const ok = () => { btn.textContent = "복사했습니다"; setTimeout(() => (btn.textContent = label), 1500); };
+    const fail = () => { btn.textContent = "복사하지 못했습니다"; setTimeout(() => (btn.textContent = label), 1500); };
+    try {
+      if (N) { N.copy(text); ok(); }
+      else navigator.clipboard.writeText(text).then(ok, fail);
+    } catch (_) { fail(); }
   };
+  const thumb = (p, cls) => {
+    if (!str(p.image)) { return el("span", "th" + (cls ? " " + cls : "")); }
+    const img = el("img", "th" + (cls ? " " + cls : ""));
+    img.loading = "lazy";
+    img.alt = "";
+    img.src = p.image + "?format=auto&f=200x200";
+    img.onerror = () => { img.style.visibility = "hidden"; };
+    return img;
+  };
+  /* 직원 수정: 이 기기에 저장하고, 목록을 복사해 관리자에게 보낸다 */
+  let EDITS = {};
+  try { EDITS = JSON.parse(localStorage.getItem("lsg.edits") || "{}") || {}; } catch (_) { EDITS = {}; }
+  const saveEdits = () => { try { localStorage.setItem("lsg.edits", JSON.stringify(EDITS)); } catch (_) {} renderEdits(); };
+  const editOf = (p) => EDITS[p.id] || null;
+  const pointsOf = (p) => { const e = editOf(p); if (e && arr(e.points).filter(str).length) return e.points.filter(str); return p.easy ? p.easy.points : arr(p.key_points).slice(0, 3); };
+  const diffOf = (p) => { const e = editOf(p); if (e && str(e.diff)) return str(e.diff); return p.diff ? p.diff.diff : (p.easy ? p.easy.better : ""); };
+  function renderEdits() {
+    const ids = Object.keys(EDITS);
+    const box = $("editBlock");
+    if (!box) return;
+    box.hidden = ids.length === 0;
+    $("editCount").textContent = "이 휴대폰에서 수정한 제품 " + ids.length + "개";
+  }
+  function editsAsText() {
+    const lines = ["[라벨 스캔 가이드 수정 요청] 자료 " + str(DB.version)];
+    for (const id of Object.keys(EDITS)) {
+      const e = EDITS[id];
+      const p = DB.products.find((x) => x.id === id);
+      lines.push("", "■ " + (p ? str(p.name) : "제품") + " (번호 " + id + ")");
+      arr(e.points).filter(str).forEach((t, n) => lines.push("좋은 점 " + (n + 1) + ": " + str(t)));
+      if (str(e.diff)) lines.push("다른 점: " + str(e.diff));
+      if (str(e.note)) lines.push("틀린 정보·메모: " + str(e.note));
+    }
+    return lines.join("\n");
+  }
 
   let DB = { version: "", products: [] };
   let codeMap = new Map();
@@ -366,8 +422,9 @@ footer { font-size: 14px; color: var(--sub); }
     const card = el("article", "rec");
     const head = el("div", "head");
     const hl = el("div");
-    hl.append(el("p", "rank", "추천 " + (i + 1)), el("h3", null, str(p.name)));
-    head.append(hl, el("p", "price", priceOf(p)));
+    hl.append(el("p", "rank", "추천 " + (i + 1)), el("h3", null, str(p.name)), el("p", "price", priceOf(p)));
+    head.style.justifyContent = "flex-start";
+    head.append(thumb(p, "big"), hl);
     card.append(head);
     const sb = storeBadge(p);
     if (sb && p.goyang !== 1) { const w = el("div"); w.append(sb); card.append(w); }
@@ -394,9 +451,10 @@ footer { font-size: 14px; color: var(--sub); }
       if (!hits.length || hits.some((h) => h.p.test(kp))) reasons.push(str(kp));
     }
     if (p.easy) {
-      const plain = p.easy.points.filter((t) => hits.some((h) => h.p.test(t)));
+      const mine = pointsOf(p);
+      const plain = mine.filter((t) => hits.some((h) => h.p.test(t)));
       reasons.length = 0;
-      reasons.push(...(plain.length ? plain : p.easy.points.slice(0, 2)));
+      reasons.push(...(plain.length ? plain : mine.slice(0, 2)));
     }
     if (!reasons.length) reasons.push(...arr(p.key_points).slice(0, 2).map(str));
     if (reasons.length) {
@@ -474,7 +532,7 @@ footer { font-size: 14px; color: var(--sub); }
     const nm = el("span", "nm");
     nm.append(el("span", null, str(p.name)));
     nm.append(el("small", null, [str(p.brand), str(p.cat), why, DB.store && p.goyang === 0 ? "고양점 미판매" : ""].filter(Boolean).join(" · ")));
-    b.append(nm, el("span", "pr", priceOf(p)));
+    b.append(thumb(p), nm, el("span", "pr", priceOf(p)));
     b.onclick = () => openProduct(p);
     return b;
   }
@@ -553,11 +611,23 @@ footer { font-size: 14px; color: var(--sub); }
     head.append(hl, hr);
     root.append(head);
     const sb = storeBadge(d);
-    if (sb) { const w = el("div"); w.append(sb); root.append(w); }
+    const ed = editOf(d);
+    const tags = el("div", "row");
+    if (sb) tags.append(sb);
+    if (ed) tags.append(el("span", "badge unk", "직원이 수정함"));
+    if (tags.children.length) root.append(tags);
+    if (str(d.image)) {
+      const img = el("img", "pimg");
+      img.alt = str(d.name);
+      img.src = d.image + "?format=auto&f=600x600";
+      img.onerror = () => img.remove();
+      root.append(img);
+    }
+    if (ed && str(ed.note)) root.append(el("p", "note", "직원 메모: " + str(ed.note)));
 
     const sentences = str(d.script).split(/(?<=[.?])\s+/).map((s) => s.trim()).filter(Boolean);
     const E = d.easy || null;
-    const pts = E ? E.points : arr(d.key_points).slice(0, 3);
+    const pts = pointsOf(d);
     if (pts.length) {
       const box = el("div", "say");
       box.append(el("small", null, "좋은 점 3가지 · 이렇게 말씀하세요"));
@@ -568,7 +638,7 @@ footer { font-size: 14px; color: var(--sub); }
     if (D && (D.diff || D.vs.length)) {
       const box = el("div", "pick");
       box.append(el("p", "lab", "비슷한 제품과 다른 점"));
-      if (D.diff) box.append(el("p", null, D.diff));
+      if (diffOf(d)) box.append(el("p", null, diffOf(d)));
       D.vs.forEach((v) => {
         const o = DB.products.find((q) => q.id === v.id);
         if (!o) return;
@@ -599,6 +669,53 @@ footer { font-size: 14px; color: var(--sub); }
       root.append(cp);
     }
 
+    {
+      const open = el("button", "line", ed ? "수정한 내용 다시 고치기" : "틀린 내용 수정하기");
+      open.type = "button";
+      open.style.alignSelf = "flex-start";
+      const form = el("div", "edit");
+      form.hidden = true;
+      form.append(el("h3", null, "내용 수정"), el("p", "sub", "저장하면 이 휴대폰에 바로 반영됩니다. 다른 직원 휴대폰에는 메인 화면의 수정 목록을 관리자에게 보내야 반영됩니다."));
+      const cur = pointsOf(d);
+      const ins = [0, 1, 2].map((n) => {
+        const lab = el("label", null, "좋은 점 " + (n + 1));
+        const inp = el("input");
+        inp.type = "text";
+        inp.id = "ed-p" + n;
+        inp.maxLength = 60;
+        inp.value = str(cur[n]);
+        lab.htmlFor = inp.id;
+        form.append(lab, inp);
+        return inp;
+      });
+      const labD = el("label", null, "비슷한 제품과 다른 점");
+      const taD = el("textarea");
+      taD.id = "ed-diff";
+      taD.maxLength = 300;
+      taD.value = diffOf(d);
+      labD.htmlFor = taD.id;
+      const labN = el("label", null, "틀린 정보·메모 (가격, 재고, 사양 등)");
+      const taN = el("textarea");
+      taN.id = "ed-note";
+      taN.maxLength = 300;
+      taN.value = ed ? str(ed.note) : "";
+      labN.htmlFor = taN.id;
+      form.append(labD, taD, labN, taN);
+      const row = el("div", "row");
+      const save = el("button", "primary", "저장");
+      save.type = "button";
+      save.onclick = () => { EDITS[d.id] = { points: ins.map((x) => x.value.trim()), diff: taD.value.trim(), note: taN.value.trim(), t: Date.now() }; saveEdits(); openProduct(d); };
+      const reset = el("button", "line", "원래대로");
+      reset.type = "button";
+      reset.onclick = () => { delete EDITS[d.id]; saveEdits(); openProduct(d); };
+      const close = el("button", "line", "닫기");
+      close.type = "button";
+      close.onclick = () => { form.hidden = true; };
+      row.append(save, reset, close);
+      form.append(row);
+      open.onclick = () => { form.hidden = !form.hidden; if (!form.hidden) form.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      root.append(open, form);
+    }
     const jump = el("div", "jump");
     const sections = [];
     const addJump = (label, a) => {
@@ -699,8 +816,42 @@ footer { font-size: 14px; color: var(--sub); }
   window.__back = () => { if (!$("detail").hidden) { goHome(); return true; } return false; };
 
   /* ---------- 촬영·검색·업데이트 ---------- */
-  $("scanBtn").onclick = () => { if (N) N.scan(); else setStatus("카메라는 앱에서만 쓸 수 있습니다.", true); };
-  $("pickBtn").onclick = () => { if (N) N.pick(); else setStatus("사진 선택은 앱에서만 쓸 수 있습니다.", true); };
+  let zxing = null;
+  const loadZxing = () => zxing || (zxing = new Promise((res, rej) => {
+    const sc = document.createElement("script");
+    sc.src = "https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+    sc.onload = () => res(window.ZXing);
+    sc.onerror = () => { zxing = null; rej(new Error("load")); };
+    document.head.append(sc);
+  }));
+  async function webScan(file) {
+    if (!file) return;
+    window.__scanStart();
+    const url = URL.createObjectURL(file);
+    try {
+      const Z = await loadZxing();
+      const reader = new Z.BrowserMultiFormatReader();
+      const result = await reader.decodeFromImageUrl(url);
+      window.__scan(result && result.text ? result.text : null);
+    } catch (_) {
+      setStatus("바코드를 읽지 못했습니다. 바코드가 화면에 크게, 또렷하게 나오도록 다시 찍거나 검색창에 제품명을 입력해 주세요.", true);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  const webInput = (capture) => {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    if (capture) inp.setAttribute("capture", "environment");
+    inp.onchange = () => webScan(inp.files && inp.files[0]);
+    inp.click();
+  };
+  if (!N) { $("scanBtn").textContent = "바코드 촬영"; }
+  $("scanBtn").onclick = () => { if (N) N.scan(); else webInput(true); };
+  $("pickBtn").onclick = () => { if (N) N.pick(); else webInput(false); };
+  $("editCopy").onclick = () => copyText(editsAsText(), $("editCopy"), "수정 목록 복사");
+  renderEdits();
   window.__scanStart = () => { goHome(); setStatus("라벨 글자를 읽는 중입니다…"); };
   window.__scan = (text) => {
     if (text == null || !str(text)) { setStatus("글자를 읽지 못했습니다. 라벨에 더 가까이, 밝은 곳에서 다시 찍어 주세요.", true); return; }
@@ -746,7 +897,7 @@ footer { font-size: 14px; color: var(--sub); }
     if (s === "updated") loadData();
     if (s !== "checking") setTimeout(() => { m.hidden = true; }, 4000);
   };
-  $("upd").onclick = () => { if (N) N.refresh(); };
+  $("upd").onclick = () => { if (N) N.refresh(); else { window.__updateStatus("checking"); loadData().then(() => window.__updateStatus("latest")); } };
 
   loadData();
 })();
