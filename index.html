@@ -589,8 +589,10 @@ window.onerror = function (msg, src, line) {
   }
 
   function runSearch(q) {
-    const rec = recommend(q);
+    let rec = recommend(q);
     const names = searchName(q);
+    // A plain product-name or code search: show the name matches, not recommendations.
+    if (rec && !rec.kinds.length && !rec.needs.length && names.length) rec = null;
     const rb = $("recBlock");
     if (rec && rec.list.length && !(names.length && names[0] && norm(q).length <= 12 && !rec.needs.length && names.length <= 3 && false)) {
       rb.hidden = false;
