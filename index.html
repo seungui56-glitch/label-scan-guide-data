@@ -221,7 +221,7 @@ window.onerror = function (msg, src, line) {
   try { EDITS = JSON.parse(localStorage.getItem("lsg.edits") || "{}") || {}; } catch (_) { EDITS = {}; }
   const saveEdits = () => { try { localStorage.setItem("lsg.edits", JSON.stringify(EDITS)); } catch (_) {} renderEdits(); };
   const editOf = (p) => EDITS[p.id] || null;
-  const pointsOf = (p) => { const e = editOf(p); if (e && arr(e.points).filter(str).length) return e.points.filter(str); return p.easy ? p.easy.points : arr(p.key_points).slice(0, 3); };
+  const pointsOf = (p) => { const e = editOf(p); if (e && arr(e.points).filter(str).length) return e.points.filter(str); return p.easy ? p.easy.points : arr(p.key_points || p.points0).slice(0, 3); };
   const diffOf = (p) => { const e = editOf(p); if (e && str(e.diff)) return str(e.diff); return p.diff ? p.diff.diff : (p.easy ? p.easy.better : ""); };
   function renderEdits() {
     const ids = Object.keys(EDITS);
@@ -410,7 +410,7 @@ window.onerror = function (msg, src, line) {
     { q: /추위|추운|겨울|춥|보온|따뜻/, p: /보온|따뜻|기모|웜|방한|플리스|패딩|다운|영하|추운/, label: "추운 날씨", reason: "보온이 되는" },
     { q: /비 ?[오올온와]|비가|비에|비를|빗|우천|우중|방수|발수|장마|젖/, p: /방수|발수|워터프루프/, label: "비 오는 날", reason: "비를 막아 주는" },
     { q: /바람|방풍/, p: /방풍|바람막이|바람을/, label: "바람", reason: "바람을 막아 주는" },
-    { q: /초보|입문|처음|시작/, p: /초보|입문|초급|처음/, label: "러닝 입문", reason: "처음 시작하는 분께 맞춘" },
+    { q: /초보|입문|처음|시작/, p: /초보|입문|초급|처음/, label: "입문·초보", reason: "처음 시작하는 분께 맞춘" },
     { q: /마라톤|장거리|풀코스|하프|대회|기록|레이스/, p: /마라톤|장거리|레이스|대회|시합|카본/, label: "장거리와 대회", reason: "장거리와 대회에 맞춘" },
     { q: /가벼|경량|무게/, p: /가벼|경량|초경량/, label: "가벼운 무게", reason: "무게가 가벼운" },
     { q: /발볼|넓/, p: /발볼|와이드|넓/, label: "발볼", reason: "발볼을 고려한" },
@@ -702,7 +702,32 @@ window.onerror = function (msg, src, line) {
   }
   function more(body, text) { if (str(text)) { body.append(el("p", "lab", "자세한 설명"), renderRich(text)); } }
 
+  // Details (comparisons, objections, specs) live in one file per sport and are loaded when first needed.
+  const detCache = {};
+  const PAGES = "https://seungui56-glitch.github.io/label-scan-guide-data/";
+  function loadDet(sp) {
+    if (!DB.files || !DB.files[sp]) return Promise.resolve({});
+    if (!detCache[sp]) {
+      const url = (N ? PAGES : "") + DB.files[sp] + "?v=" + encodeURIComponent(str(DB.version));
+      detCache[sp] = fetch(url).then((r) => { if (!r.ok) throw new Error("status " + r.status); return r.json(); }).catch((e) => { delete detCache[sp]; throw e; });
+    }
+    return detCache[sp];
+  }
+  let shown = null;
   function openProduct(d) {
+    shown = d;
+    renderProduct(d, false);
+    if (d._full) return;
+    loadDet(d.sport).then((det) => {
+      if (det && det[d.id]) Object.assign(d, det[d.id]);
+      d._full = true;
+      if (shown === d && !$("detail").hidden) renderProduct(d, true);
+    }).catch(() => {
+      d._failed = true;
+      if (shown === d && !$("detail").hidden) renderProduct(d, true);
+    });
+  }
+  function renderProduct(d, keep) {
     const root = $("result");
     root.replaceChildren();
     const det = d.details || {};
@@ -913,9 +938,10 @@ window.onerror = function (msg, src, line) {
     root.append(jump);
     sections.forEach((s) => root.append(s));
 
+    if (!d._full) root.append(el("p", "status", d._failed ? "자세한 비교 내용은 인터넷에 연결되면 보입니다." : "자세한 비교 내용을 불러오는 중입니다…"));
     $("home").hidden = true;
     $("detail").hidden = false;
-    window.scrollTo(0, 0);
+    if (!keep) window.scrollTo(0, 0);
   }
   function goHome() { $("detail").hidden = true; $("home").hidden = false; }
   $("backBtn").onclick = goHome;
