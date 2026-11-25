@@ -375,7 +375,10 @@ window.onerror = function (msg, src, line) {
       if (/^\d{4,}$/.test(nq) && arr(p.codes).some((c) => String(c).startsWith(nq))) score = 120;
       if (score >= 20) out.push({ p, score });
     });
-    out.sort((a, b) => b.score - a.score || (b.p.reviews || 0) - (a.p.reviews || 0));
+    const accQ = ACC_NAME.test(String(q));
+    const inN = (o) => (o.p._nn.includes(nq) ? 1 : 0);
+    const acc = (o) => (!accQ && o.p._acc ? 1 : 0);
+    out.sort((a, b) => acc(a) - acc(b) || inN(b) - inN(a) || b.score - a.score || (b.p.reviews || 0) - (a.p.reviews || 0));
     return out.slice(0, 20).map((o) => ({ p: o.p, why: "" }));
   }
 
