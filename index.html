@@ -301,6 +301,12 @@ window.onerror = function (msg, src, line) {
       p._hi = [str(p.name), str(p.pitch)].concat(arr(p.key_points), plain).join(" ");
       p._blob = norm(p._hi + " " + str(p.cat) + " " + str(p.target_customer));
       p._kid = /아동|주니어|키즈|유아|베이비|어린이|남아|여아/.test(str(p.name) + " " + str(p.gender) + " " + str(p.cat));
+      p._part = partOf(p);
+      p._season = p._part ? seasonOf(p, p._hi) : "";
+      p._nc = norm(str(p.name) + " " + str(p.cat));
+      p._nn = norm(str(p.name));
+      p._acc = /케이스|커버|수경 밴드|스트랩|텐트 팩|단조팩|폴 키트|수리|교체용|리필|부품|보관 ?가방|끈( |$)|왁스|세제|스프레이|펌프|바늘/.test(str(p.name));
+      if (/성인/.test(str(p.name))) p._kid = /아동|주니어|키즈|어린이/.test(str(p.name)) ? "both" : false;
       p._lo = [str(p.target_customer), str(p.script)].concat(arr(p.specs).map((s) => str(s.label) + " " + str(s.value))).join(" ");
     });
     idf = new Map();
@@ -366,8 +372,8 @@ window.onerror = function (msg, src, line) {
 
   /* ---------- 고객 질문 → 추천 (기기 안에서 규칙으로 계산) ---------- */
   const KINDS = [
-    { q: /양말/, p: /양말/, name: "양말" },
-    { q: /수영복|수영 ?바지|비키니/, p: /수영복|스윔|트렁크|재머|비키니/, name: "수영복" },
+    { q: /양말/, part: "socks", name: "양말" },
+    { q: /수영복|수영 ?바지|비키니/, p: /수영복|트렁크|재머|비키니/, name: "수영복", nameOnly: true },
     { q: /수경|물안경|수영 ?고글/, p: /수경|수영 ?고글/, name: "수경", nameOnly: true },
     { q: /수모|수영모/, p: /수모|수영모|수영 ?캡/, name: "수모", nameOnly: true },
     { q: /래쉬가드|래시가드|웻슈트|웨트슈트/, p: /래쉬가드|웻슈트|웨트슈트|네오프렌/, name: "래쉬가드", nameOnly: true },
@@ -377,21 +383,24 @@ window.onerror = function (msg, src, line) {
     { q: /등산화|하이킹화|트레킹화|등산 ?신발|부츠/, p: /하이킹화|등산화|트레킹화|부츠/, name: "등산화" },
     { q: /배낭|백팩|등산 ?가방/, p: /배낭|백팩/, name: "배낭" },
     { q: /스틱|지팡이|폴대/, p: /스틱/, name: "등산 스틱" },
-    { q: /침낭|매트|야영/, p: /침낭|매트/, name: "침낭·매트" },
+    { q: /침낭/, p: /침낭/, name: "침낭", nameOnly: true },
+    { q: /매트|돗자리/, p: /매트|돗자리/, name: "매트", nameOnly: true },
     { q: /헤드램프|헤드랜턴|랜턴|손전등/, p: /헤드램프|랜턴|손전등/, name: "헤드램프", nameOnly: true },
     { q: /패딩|다운|플리스|후리스/, p: /패딩|다운|플리스/, name: "패딩·플리스", nameOnly: true },
     { q: /우비|판초|비옷/, p: /판초|우비|레인/, name: "우비", nameOnly: true },
-    { q: /신발|러닝화|운동화|레이싱화|슈즈/, p: /러닝화|레이싱화|하이킹화|등산화/, name: "신발" },
-    { q: /반바지|쇼츠|숏츠/, p: /쇼츠|반바지/, name: "러닝 쇼츠" },
-    { q: /타이츠|레깅스/, p: /타이츠|레깅스/, name: "러닝 타이츠" },
-    { q: /바지|팬츠|하의/, p: /하의|바지|팬츠/, name: "바지", unless: /반바지/ },
-    { q: /반팔|티셔츠|반소매/, p: /반팔/, name: "반팔 티" },
-    { q: /긴팔|긴소매/, p: /긴팔/, name: "긴팔 티" },
-    { q: /싱글렛|나시|민소매/, p: /싱글렛|민소매|탱크/, name: "싱글렛" },
-    { q: /상의|윗옷/, p: /상의/, name: "러닝 상의" },
-    { q: /자켓|재킷|바람막이|아우터|점퍼|패딩/, p: /아우터|자켓|재킷|패딩/, name: "자켓" },
-    { q: /모자|캡|비니|바이저/, p: /모자|캡|비니|바이저|햇/, name: "모자" },
-    { q: /장갑/, p: /장갑|미튼/, name: "장갑" },
+    { q: /축구화|풋살화/, p: /축구화|풋살화/, name: "축구화", nameOnly: true },
+    { q: /신발|러닝화|운동화|레이싱화|슈즈|테니스화|농구화|배드민턴화/, part: "shoes", name: "신발" },
+    { q: /반바지|쇼츠|숏츠/, part: "bottom", p: /쇼츠|숏츠|반바지|버뮤다/, nameOnly: true, name: "반바지" },
+    { q: /타이츠|레깅스/, part: "bottom", p: /타이츠|레깅스/, nameOnly: true, name: "타이츠·레깅스" },
+    { q: /치마|스커트|스코트/, part: "bottom", p: /치마|스커트|스코트/, nameOnly: true, name: "스커트" },
+    { q: /바지|팬츠|하의|아랫도리/, part: "bottom", not: /쇼츠|숏츠|반바지|버뮤다|스커트|스코트|치마/, name: "바지", unless: /반바지/ },
+    { q: /반팔|티셔츠|반소매/, part: "top", not: /긴팔|긴소매|플리스|후디|후드|베이스 ?레이어/, name: "반팔 티" },
+    { q: /긴팔|긴소매/, part: "top", p: /긴팔|긴소매|플리스|후디|후드|베이스 ?레이어|스웨트|셔츠/, not: /반팔|반소매/, nameOnly: true, name: "긴팔" },
+    { q: /싱글렛|나시|민소매/, part: "top", p: /싱글렛|민소매|탱크/, nameOnly: true, name: "민소매" },
+    { q: /상의|윗옷|윗도리|웃옷/, part: "top", name: "상의" },
+    { q: /자켓|재킷|바람막이|아우터|점퍼/, part: "outer", name: "자켓·아우터" },
+    { q: /모자|캡|비니|바이저/, part: "head", name: "모자" },
+    { q: /장갑/, part: "gloves", name: "장갑" },
     { q: /벨트|암밴드|허리 ?가방|힙색/, p: /벨트|암밴드/, name: "러닝 벨트" },
     { q: /조끼|베스트|배낭|가방/, p: /베스트|가방/, name: "러닝 베스트·가방" },
     { q: /물병|물통|플라스크/, p: /물병|플라스크|보틀/, name: "물병" },
@@ -404,7 +413,7 @@ window.onerror = function (msg, src, line) {
     { q: /선글라스|고글/, p: /선글라스/, name: "선글라스" },
   ];
   const NEEDS = [
-    { q: /뒤꿈치|발바닥|충격|무릎|관절|아프|아파|통증|족저/, p: /쿠션|쿠셔닝|충격|두툼|패드/, label: "발과 관절의 충격 부담", reason: "쿠션이 착지할 때 충격을 덜어 주는", care: true },
+    { q: /뒤꿈치|발바닥|충격|무릎|관절|아프|아파|아픈데?|통증|족저/, p: /쿠션|쿠셔닝|충격|두툼|패드/, label: "발과 관절의 충격 부담", reason: "쿠션이 착지할 때 충격을 덜어 주는", care: true },
     { q: /물집|쓸리|쓸림|마찰|까지|까져/, p: /물집|마찰|심리스|봉제선|솔기|플랫/, label: "물집과 쓸림", reason: "마찰을 줄이도록 만든" },
     { q: /땀|더위|더운|여름|덥|통풍|시원/, p: /통기|흡습|속건|메쉬|통풍|땀|시원|환기/, label: "땀과 더위", reason: "땀이 빨리 마르고 통풍이 되는" },
     { q: /추위|추운|겨울|춥|보온|따뜻/, p: /보온|따뜻|기모|웜|방한|플리스|패딩|다운|영하|추운/, label: "추운 날씨", reason: "보온이 되는" },
@@ -434,6 +443,43 @@ window.onerror = function (msg, src, line) {
     { q: /편한|편안|푹신|부드러/, p: /편안|푹신|부드러|쿠션/, label: "편안한 착용감", reason: "착용감이 편안한" },
   ];
   const count = (re, s) => (s.match(new RegExp(re.source, "g")) || []).length;
+  /* ---------- 옷 종류(상의·하의·아우터)와 계절 구별 ---------- */
+  // Works from the product name first, because category paths differ by sport.
+  const NOT_WEAR = /가방|백팩|배낭|파우치|커버|케이스|공$|볼$|라켓|텐트|침낭|매트|의자|체어|테이블|스틱|덤벨|밴드 세트|보호대|헬멧|고글|수경|수모|타월|가운|물병|보틀|텀블러|랜턴|램프|인솔|깔창|끈|스트랩|왁스|펌프|네트|골대|스프레이|세제/;
+  function partOf(p) {
+    const n = str(p.name);
+    const c = str(p.cat);
+    if (/양말|삭스/.test(n)) return "socks";
+    if (/장갑|미튼|글러브/.test(n)) return "gloves";
+    if (/신발|슈즈|[가-힣]화( |$)|부츠|샌들|슬리퍼|아쿠아슈즈|클리트/.test(n) || /러닝화|등산화/.test(c)) return "shoes";
+    if (/모자|캡( |$)|비니|바이저|햇( |$)|헤드밴드|넥워머|귀마개|바라클라바|버프|멀티 ?스카프|넥 ?게이터/.test(n)) return "head";
+    if (/수영복|비키니|재머|스윔|래쉬|래시가드|웻슈트|웨트슈트|보드 ?쇼츠/.test(n) || /수영복|래쉬가드/.test(c)) return "swim";
+    if (/브라( |$)|브라탑|브리프|팬티|박서|언더웨어|드로즈/.test(n)) return "under";
+    if (/가방|백팩|배낭|트레일러닝베스트|하이드레이션|벨트|파우치/.test(n + " " + c) && !/자켓|바지|티셔츠/.test(n)) return "";
+    if (/바지|팬츠|쇼츠|숏츠|반바지|타이츠|레깅스|스커트|스코트|스커츠|치마|조거|하의|트라우저|오버트라우저|빕( |$)|버뮤다/.test(n)) return "bottom";
+    if (/자켓|재킷|바람막이|패딩|다운( |$)|파카|조끼|베스트|판초|우비|우의|레인 ?코트|오버롤|스키 수트|윈드브레이커|아노락|소프트쉘|점퍼/.test(n)) return "outer";
+    if (/티셔츠|반팔|긴팔|반소매|긴소매|싱글렛|탱크|민소매|셔츠|저지|후디|후드|스웨트|맨투맨|폴로|상의|크롭|플리스|스웨터|풀오버|베이스레이어|이너|탑( |$)|유니폼/.test(n)) return NOT_WEAR.test(n) ? "" : "top";
+    if (/하의/.test(c)) return "bottom";
+    if (/아우터/.test(c)) return "outer";
+    if (/상의/.test(c)) return "top";
+    return "";
+  }
+  const SUMMER_NAME = /반팔|반소매|싱글렛|민소매|탱크|쇼츠|숏츠|반바지|버뮤다|스커트|스코트|치마|크롭|브라탑|쿨( |$)|쿨링|메쉬|샌들|슬리퍼|썬|자외선|UV|여름|(^|[^0-9])[3579]인치|수영복|비키니|래쉬가드|아쿠아/i;
+  const WINTER_NAME = /웜|기모|방한|보온|패딩|다운( |$)|플리스|메리노|울( |$)|윈터|겨울|스키|스노우|써멀|서멀|히트|넥워머|비니|바라클라바|귀마개|핫팩|스웨터|스웨트|후디|후드|맨투맨|파카|털|퍼( |$)|SH\d|영하/i;
+  const WINTER_TEXT = /보온|따뜻|추운|추위|영하|기모|방한|겨울/;
+  const SUMMER_TEXT = /더운|더위|여름|시원/;
+  function seasonOf(p, text) {
+    const n = str(p.name);
+    const w = WINTER_NAME.test(n) || /스키 >|방한/.test(str(p.cat));
+    const s = SUMMER_NAME.test(n) || /반팔|반바지|싱글렛/.test(str(p.cat));
+    if (w && !s) return "winter";
+    if (s && !w) return "summer";
+    if (w && s) return /패딩|다운|플리스|기모|방한|스키/.test(n) ? "winter" : "summer";
+    const tw = count(WINTER_TEXT, text), ts = count(SUMMER_TEXT, text);
+    if (tw >= 2 && tw > ts * 2) return "winter";
+    if (ts >= 2 && ts > tw * 2) return "summer";
+    return "";
+  }
 
   // Everyday wording -> the words the rules understand.
   const REWRITE = [
@@ -464,7 +510,20 @@ window.onerror = function (msg, src, line) {
     let q = " " + String(query).toLowerCase() + " ";
     for (const [re, to] of REWRITE) q = q.replace(re, to);
     let kinds = KINDS.filter((k) => k.q.test(q) && !(k.unless && k.unless.test(q)));
-    if (kinds.some((k) => /쇼츠/.test(k.name))) kinds = kinds.filter((k) => k.name !== "바지");
+    if (kinds.some((k) => /반바지|타이츠|스커트|스키 바지/.test(k.name))) kinds = kinds.filter((k) => k.name !== "바지");
+    if (kinds.some((k) => /반팔|긴팔|민소매/.test(k.name))) kinds = kinds.filter((k) => k.name !== "상의");
+    if (kinds.some((k) => /패딩|스키 자켓|우비/.test(k.name))) kinds = kinds.filter((k) => k.name !== "자켓·아우터");
+    if (kinds.some((k) => /등산화|축구화/.test(k.name))) kinds = kinds.filter((k) => k.name !== "신발");
+    const season = /겨울|추위|추운|춥|따뜻|보온|한파/.test(q) ? "winter" : /여름|더위|더운|덥|시원/.test(q) ? "summer" : "";
+    const SPORTS = [[/러닝|달리기|런닝/, "러닝"], [/등산|하이킹|트레킹|산행/, "하이킹"], [/스키|스노보드|스노우보드|보드복/, "스키"], [/수영/, "수영"], [/캠핑|야영/, "캠핑"], [/헬스|피트니스|요가|필라테스|홈트|웨이트/, "피트니스"], [/축구|풋살|농구|배드민턴|테니스|탁구|골프|배구|야구/, "구기·라켓"], [/킥보드|인라인|스케이트/, "킥보드·인라인"]];
+    const hint = SPORTS.filter((x) => x[0].test(q)).map((x) => x[1]);
+    const kindHit = (k, p) => {
+      if (k.part && p._part !== k.part) return false;
+      const t = k.nameOnly ? str(p.name) : p._kind;
+      if (k.p && !k.p.test(t)) return false;
+      if (k.not && k.not.test(str(p.name))) return false;
+      return true;
+    };
     const needs = NEEDS.filter((n) => n.q.test(q));
     const cheap = /저렴|싼|싸게|저가|예산/.test(q);
     const m = q.match(/(\d+)\s*만\s*원?/);
@@ -477,17 +536,28 @@ window.onerror = function (msg, src, line) {
     for (const k of kinds) rest = rest.replace(new RegExp(k.q.source, "g"), " ");
     for (const n of needs) rest = rest.replace(new RegExp(n.q.source, "g"), " ");
     rest = rest.replace(/남성|남자|남편|아들|아빠|여성|여자|아내|딸|엄마|와이프|아이|아동|어린이|키즈|주니어|저렴|\d+\s*만\s*원?|이하|이상|정도|미만/g, " ");
+    rest = rest.replace(/러닝|달리기|런닝|등산|하이킹|트레킹|산행|헬스|피트니스|홈트|캠핑|겨울|여름|봄|가을|옷|의류/g, " ");
     const free = [...new Set(rest.split(/[^0-9a-z가-힣]+/).map(stem).filter((t) => t.length >= 2))];
-    if (!kinds.length && !needs.length && !free.length) return null;
+    if (!kinds.length && !needs.length && !free.length && !hint.length) return null;
+    // A searched word that appears in product names must be in the name; otherwise it may match the description.
+    const inName = free.filter((t) => DB.products.some((p) => p._nn.includes(t)));
+    const accAsked = /케이스|커버|밴드|스트랩|팩|폴|수리|교체|리필|부품|가방|끈|왁스|세제|스프레이|펌프/.test(q);
 
-    const build = (useStore, useSport, useNeeds) => {
+    const build = (useStore, useSport, useNeeds, strict) => {
       const pool = DB.products.filter((p) => {
         if (!p.price) return false;
-        if (kinds.length && !kinds.some((k) => k.p.test(k.nameOnly ? str(p.name) : p._kind))) return false;
+        if (kinds.length && !kinds.some((k) => kindHit(k, p))) return false;
+        if (season === "winter" && p._season === "summer") return false;
+        if (season === "summer" && p._season === "winter") return false;
+        if (season && !kinds.length && !/^(top|bottom|outer)$/.test(p._part)) return false;
+        if (strict !== false) {
+          if (hint.length && !hint.includes(p.sport)) return false;
+          for (const t of inName) if (!p._nn.includes(t)) return false;
+        }
         if (gender && str(p.gender) && !str(p.gender).includes(gender)) return false;
-        if (kid !== p._kid) return false;
+        if (p._kid !== "both" && kid !== p._kid) return false;
         if (cap && p.price > cap) return false;
-        if (useSport && sport && p.sport !== sport) return false;
+        if (useSport && sport && !hint.length && p.sport !== sport) return false;
         if (useStore && onlyStore && DB.store && p.goyang !== 1) return false;
         return true;
       });
@@ -496,7 +566,7 @@ window.onerror = function (msg, src, line) {
         const hits = [];
         for (const n of needs) {
           const c = Math.min(4, count(n.p, p._hi)) * 3 + Math.min(3, count(n.p, p._lo));
-          if (c) { sc += c; hits.push(n); }
+          if (c) { sc += c + (n.p.test(str(p.name)) ? 10 : 0); hits.push(n); }
         }
         let fhit = 0;
         for (const t of free) if (p._blob.includes(t)) { fhit++; sc += norm(p.name).includes(t) ? 5 : 2; }
@@ -504,19 +574,30 @@ window.onerror = function (msg, src, line) {
       });
       if (useNeeds && (needs.length || free.length)) scored = scored.filter((x) => x.s > 0);
       if (!kinds.length && !needs.length) scored = scored.filter((x) => x.fhit > 0);
-      scored.sort((a, b) => (b.hits.length + b.fhit) - (a.hits.length + a.fhit) || b.s - a.s || (cheap ? a.p.price - b.p.price : 0) || (b.p.written ? 1 : 0) - (a.p.written ? 1 : 0) || (b.p.reviews || 0) - (a.p.reviews || 0));
-      if (cheap && !needs.length && !free.length) scored.sort((a, b) => a.p.price - b.p.price);
+      const sm = (x) => (season && x.p._season === season ? 1 : 0);
+      const ac = (x) => (!accAsked && x.p._acc ? 1 : 0);
+      scored.sort((a, b) => ac(a) - ac(b) || sm(b) - sm(a) || (b.hits.length + b.fhit) - (a.hits.length + a.fhit) || b.s - a.s || (cheap ? a.p.price - b.p.price : 0) || (b.p.written ? 1 : 0) - (a.p.written ? 1 : 0) || (b.p.reviews || 0) - (a.p.reviews || 0));
+      if (cheap && !needs.length && !free.length) scored.sort((a, b) => ac(a) - ac(b) || a.p.price - b.p.price);
       return scored;
     };
     // Widen step by step so the staff member always gets something to show.
-    const tries = [[true, true, true, ""], [false, true, true, "고양점 판매 제품 중에는 없어 다른 매장·온라인 제품을 보여 드립니다"], [false, false, true, "선택한 종목에는 없어 전체 종목에서 찾았습니다"], [false, false, false, "말씀하신 조건이 자료에 직접 적힌 제품이 없어 인기 순으로 보여 드립니다"]];
+    const tries = [[true, true, true, ""], [false, true, true, "고양점 판매 제품 중에는 없어 다른 매장·온라인 제품을 보여 드립니다"], [false, false, true, "선택한 종목에는 없어 전체 종목에서 찾았습니다"], [false, false, false, "말씀하신 조건이 자료에 직접 적힌 제품이 없어 인기 순으로 보여 드립니다"], [false, false, false, "말씀하신 종목의 해당 제품은 자료에 없어 다른 종목의 같은 종류를 보여 드립니다", false]];
     let list = [];
     let note = "";
-    for (const [a, b, c, msg] of tries) {
-      list = build(a, b, c);
-      if (list.length) { note = msg; break; }
+    for (const [a, b, c, msg, st] of tries) {
+      list = build(a, b, c, st);
+      if (list.length) {
+        note = msg;
+        // Few store products: add the rest of the range after them (their cards say they are not confirmed in store).
+        if (a && list.length < 5 && onlyStore && DB.store) {
+          const have = new Set(list.map((x) => x.p.id));
+          list = list.concat(build(false, b, c, st).filter((x) => !have.has(x.p.id)));
+          if (!accAsked) list = list.filter((x) => !x.p._acc).concat(list.filter((x) => x.p._acc));
+        }
+        break;
+      }
     }
-    return { kinds, needs, free, direct: !note, note, cheap, list: list.slice(0, 5) };
+    return { kinds, needs, free, season, hint, direct: !note, note, cheap, list: list.slice(0, 5) };
   }
 
   function recCard(x, i, ctx) {
@@ -592,13 +673,15 @@ window.onerror = function (msg, src, line) {
     let rec = recommend(q);
     const names = searchName(q);
     // A plain product-name or code search: show the name matches, not recommendations.
-    if (rec && !rec.kinds.length && !rec.needs.length && names.length) rec = null;
+    if (rec && !rec.kinds.length && !rec.needs.length && !rec.season && names.length) rec = null;
     const rb = $("recBlock");
     if (rec && rec.list.length && !(names.length && names[0] && norm(q).length <= 12 && !rec.needs.length && names.length <= 3 && false)) {
       rb.hidden = false;
       const parts = [];
       if (rec.kinds.length) parts.push("찾는 제품: " + rec.kinds.map((k) => k.name).join(", "));
       if (rec.needs.length) parts.push("고객 고민: " + rec.needs.map((n) => n.label).join(", "));
+      if (rec.season) parts.push("계절: " + (rec.season === "winter" ? "겨울" : "여름"));
+      if (arr(rec.hint).length) parts.push("종목: " + rec.hint.join(", "));
       if (rec.cheap) parts.push("가격 우선");
       let sub = parts.join(" · ");
       if (arr(rec.free).length) parts.push("검색어: " + rec.free.join(", "));
