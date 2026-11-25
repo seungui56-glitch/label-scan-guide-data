@@ -153,6 +153,7 @@ footer { font-size: 14px; color: var(--sub); }
     <section class="block" id="recBlock" hidden>
       <h2 id="recTitle">고객 질문에 맞는 추천</h2>
       <p class="sub" id="recSub"></p>
+      <div class="cats" id="recChips" style="margin:8px 0"></div>
       <div class="block" id="recs"></div>
     </section>
 
@@ -305,10 +306,12 @@ window.onerror = function (msg, src, line) {
       p._season = p._part ? seasonOf(p, p._hi) : "";
       p._nc = norm(str(p.name) + " " + str(p.cat));
       p._nn = norm(str(p.name));
+      p._cho = choOf(p._nn);
       p._acc = /케이스|커버|수경 밴드|스트랩|텐트 팩|단조팩|폴 키트|수리|교체용|리필|부품|보관 ?가방|끈( |$)|왁스|세제|스프레이|펌프|바늘/.test(str(p.name));
       if (/성인/.test(str(p.name))) p._kid = /아동|주니어|키즈|어린이/.test(str(p.name)) ? "both" : false;
       p._lo = [str(p.target_customer), str(p.script)].concat(arr(p.specs).map((s) => str(s.label) + " " + str(s.value))).join(" ");
     });
+    buildVocab(df);
     idf = new Map();
     df.forEach((n, t) => idf.set(t, Math.log(DB.products.length / n) + 1));
     DB.products.forEach((p) => { p._w = p._tok.reduce((a, t) => a + idf.get(t), 0) || 1; });
@@ -351,6 +354,13 @@ window.onerror = function (msg, src, line) {
   }
   function searchName(q) {
     const nq = norm(q);
+    const cq = String(q).replace(/\s+/g, "");
+    if (isCho(cq)) {
+      // Initial consonants only, e.g. "ㄹㄴㅎ" finds 러닝화.
+      const hit = DB.products.filter((p) => inStore(p) && p._cho.includes(cq));
+      hit.sort((a, b) => (b.reviews || 0) - (a.reviews || 0));
+      return hit.slice(0, 20).map((x) => ({ p: x, why: "초성 일치" }));
+    }
     if (nq.length < 2) return [];
     const qt = toks(q);
     const out = [];
@@ -504,10 +514,68 @@ window.onerror = function (msg, src, line) {
     [/수영 ?모자/g, " 수모 "],
   ];
   const FILLER = /추천해?(주세요|줘요|줘|좀)?|좋은|괜찮은|쓸 ?만한|있나요|있어요|있을까요|있어|없나요|주세요|줘요|보여 ?줘|알려 ?줘|사려는데|사려고|살려고|살 ?건데|찾아요|찾는데|찾고|필요해요?|원해요|제가|저는|우리|입을|신을|쓸|낄|쓰는|입는|신는|용으로|같은|종류|제품|상품|물건|거|것|뭐|어떤|하나|좀|혹시|요$/g;
+  /* ---------- 한글 자모 처리: 초성 검색과 오타 보정 ---------- */
+  const H_CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+  const H_JUNG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
+  const H_JONG = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+  const syl = (ch) => { const c = ch.charCodeAt(0) - 0xAC00; return c >= 0 && c <= 11171 ? c : -1; };
+  const jamo = (t) => { let o = ""; for (const ch of String(t)) { const c = syl(ch); o += c < 0 ? ch : H_CHO[Math.floor(c / 588)] + H_JUNG[Math.floor((c % 588) / 28)] + H_JONG[c % 28]; } return o; };
+  const choOf = (t) => { let o = ""; for (const ch of String(t)) { const c = syl(ch); o += c < 0 ? ch : H_CHO[Math.floor(c / 588)]; } return o; };
+  const isCho = (t) => t.length >= 2 && [...t].every((ch) => H_CHO.includes(ch));
+  function lev(a, b, max) {
+    if (Math.abs(a.length - b.length) > max) return max + 1;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      let best = i;
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (cur[j] < best) best = cur[j];
+      }
+      if (best > max) return max + 1;
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  let VOCAB = [];
+  function buildVocab(df) {
+    const m = new Map();
+    df.forEach((n, t) => { if (n >= 3 && /^[가-힣]{2,}$/.test(t)) m.set(t, n); });
+    for (const k of KINDS) for (const w of k.q.source.split("|")) if (/^[가-힣]{2,}$/.test(w)) m.set(w, (m.get(w) || 0) + 50);
+    VOCAB = [...m.entries()].map(([w, n]) => ({ w, n, j: jamo(w) }));
+  }
+  const KNOWN = /남성|남자|남편|아들|아빠|여성|여자|아내|딸|엄마|와이프|아이|아동|어린이|키즈|주니어|저렴|싼|싸게|저가|예산|만원|이하|이상|정도|미만|겨울|여름|봄|가을|옷|의류|러닝|달리기|런닝|등산|하이킹|트레킹|산행|스키|보드|수영|캠핑|야영|헬스|피트니스|요가|필라테스|홈트|웨이트|축구|풋살|농구|배드민턴|테니스|탁구|골프|배구|야구|킥보드|인라인|스케이트/;
+  function fixTypos(q) {
+    const fixes = [];
+    const out = q.split(/\s+/).map((t) => {
+      if (!/^[가-힣]{2,}$/.test(t)) return t;
+      const st = stem(t);
+      if (KNOWN.test(t) || KINDS.some((k) => k.q.test(t)) || NEEDS.some((n) => n.q.test(t))) return t;
+      if (REWRITE.some((r) => { r[0].lastIndex = 0; return r[0].test(t); })) return t;
+      if (t.replace(FILLER, "").length < 2) return t;
+      if (st.length >= 2 && DB.products.some((p) => p._nn.includes(st))) return t;
+      let best = null;
+      for (const cand of [t, st]) {
+        if (cand.length < 2) continue;
+        const j = jamo(cand);
+        const max = j.length >= 8 ? 2 : 1;
+        for (const v of VOCAB) {
+          const d = lev(j, v.j, max);
+          if (d <= max && (!best || d < best.d || (d === best.d && v.n > best.n))) best = { w: v.w, d, n: v.n };
+        }
+      }
+      if (!best) return t;
+      fixes.push(t + " → " + best.w);
+      return best.w;
+    });
+    return { q: out.join(" "), fixes };
+  }
+
   const stem = (t) => t.replace(/(으로|에서|에게|한테|이랑|랑|하고|하는|한|은|는|이|가|을|를|의|도|만|용|에)$/, "");
 
   function recommend(query) {
-    let q = " " + String(query).toLowerCase() + " ";
+    const fx = fixTypos(String(query).toLowerCase().trim());
+    let q = " " + fx.q + " ";
     for (const [re, to] of REWRITE) q = q.replace(re, to);
     let kinds = KINDS.filter((k) => k.q.test(q) && !(k.unless && k.unless.test(q)));
     if (kinds.some((k) => /반바지|타이츠|스커트|스키 바지/.test(k.name))) kinds = kinds.filter((k) => k.name !== "바지");
@@ -572,7 +640,8 @@ window.onerror = function (msg, src, line) {
         for (const t of free) if (p._blob.includes(t)) { fhit++; sc += norm(p.name).includes(t) ? 5 : 2; }
         return { p, s: sc, hits, fhit };
       });
-      if (useNeeds && (needs.length || free.length)) scored = scored.filter((x) => x.s > 0);
+      if (useNeeds && needs.length) scored = scored.filter((x) => x.hits.length > 0);
+      else if (useNeeds && free.length && !kinds.length) scored = scored.filter((x) => x.s > 0);
       if (!kinds.length && !needs.length) scored = scored.filter((x) => x.fhit > 0);
       const sm = (x) => (season && x.p._season === season ? 1 : 0);
       const ac = (x) => (!accAsked && x.p._acc ? 1 : 0);
@@ -597,7 +666,7 @@ window.onerror = function (msg, src, line) {
         break;
       }
     }
-    return { kinds, needs, free, season, hint, direct: !note, note, cheap, list: list.slice(0, 5) };
+    return { fixes: fx.fixes, kinds, needs, free, season, hint, direct: !note, note, cheap, list: list.slice(0, 5) };
   }
 
   function recCard(x, i, ctx) {
@@ -669,8 +738,28 @@ window.onerror = function (msg, src, line) {
     return card;
   }
 
+  function renderChips(q) {
+    const box = $("recChips");
+    box.replaceChildren();
+    const groups = [["남성", "여성", "아동"], ["겨울", "여름"], ["저렴한"]];
+    groups.forEach((g) => g.forEach((w) => {
+      const on = q.includes(w);
+      const b = el("button", null, w === "저렴한" ? "가격 낮은 순" : w);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(on));
+      b.onclick = () => {
+        let v = $("q").value;
+        g.forEach((x) => { v = v.split(x).join(" "); });
+        if (!on) v = w + " " + v;
+        v = v.replace(/\s+/g, " ").trim();
+        $("q").value = v;
+        runSearch(v);
+      };
+      box.append(b);
+    }));
+  }
   function runSearch(q) {
-    let rec = recommend(q);
+    let rec = isCho(String(q).replace(/\s+/g, "")) ? null : recommend(q);
     const names = searchName(q);
     // A plain product-name or code search: show the name matches, not recommendations.
     if (rec && !rec.kinds.length && !rec.needs.length && !rec.season && names.length) rec = null;
@@ -686,7 +775,9 @@ window.onerror = function (msg, src, line) {
       let sub = parts.join(" · ");
       if (arr(rec.free).length) parts.push("검색어: " + rec.free.join(", "));
       sub = parts.join(" · ");
+      if (arr(rec.fixes).length) sub = "오타 보정: " + rec.fixes.join(", ") + " · " + sub;
       if (rec.note) sub += " · " + rec.note;
+      renderChips(String(q));
       $("recSub").textContent = sub;
       const box = $("recs");
       box.replaceChildren();
@@ -1088,7 +1179,7 @@ window.onerror = function (msg, src, line) {
     clearTimeout(timer);
     timer = setTimeout(() => {
       const q = $("q").value;
-      if (norm(q).length < 2) { $("recBlock").hidden = true; $("resBlock").hidden = true; return; }
+      if (norm(q).length < 2 && !isCho(q.replace(/\s+/g, ""))) { $("recBlock").hidden = true; $("resBlock").hidden = true; return; }
       runSearch(q);
     }, 200);
   };
