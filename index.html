@@ -471,7 +471,7 @@ window.onerror = function (msg, src, line) {
   // Never clothing, whatever else the name says (sleeping bags, buoyancy aids, bags, repair patches ...).
   const HARD_NOT = /침낭|수선|패치|이어폰|스윔컵|스노클|부력|구명|암밴드|암튜브|고글|수경|헬멧(?! 바라클라바)|스틱 캡|가방|백팩|배낭|건조기|신발 ?끈(?!형)|보호 조끼|중량 ?조끼|수영.*귀마개|트레일러닝 ?베스트|베스트 \d+L|물병|보틀|플라스크|텀블러/;
   // Spare parts and small add-ons: shown after the main products unless asked for.
-  const ACC_NAME = /케이스|커버|수경 밴드|스트랩|텐트 팩|단조팩|폴 키트|수리|수선|패치|교체용|리필|부품|가방|끈( |$)|왁스|세제|스프레이|펌프|바늘|베어링|멀티툴|스탠드|스틱 캡|연습 콘|아이스팩|브레이크 패드|교체 ?휠|바퀴 세트/;
+  const ACC_NAME = /케이스|커버|수경 밴드|스트랩|텐트 팩|단조팩|폴 키트|수리|수선|패치|교체용|리필|부품|가방|끈( |$)|왁스|세제|스프레이|펌프|바늘|베어링|멀티툴|스탠드|스틱 캡|연습 콘|아이스팩|브레이크 패드|교체 ?휠|바퀴 세트|발광 바퀴|바퀴 \d+ ?mm/;
   // true = for children, false = for adults, "both" = one product for all ages.
   function kidOf(p) {
     const n = str(p.name), g = str(p.gender);
@@ -636,6 +636,21 @@ window.onerror = function (msg, src, line) {
     const cap = m ? Number(m[1]) * 10000 * 1.1 : 0;
     const gender = /남성|남자|남편|아들|아빠/.test(q) ? "남성" : /여성|여자|아내|딸|엄마|와이프/.test(q) ? "여성" : "";
     const kid = /아이(?!스|젠|언)|아동|어린이|키즈|주니어/.test(q);
+    const adultAsked = !!gender || /성인|어른/.test(q);
+    // Gear with no age in its name or gender (balls, tents, helmets) suits a child search too.
+    const ageless = (p) => !p._part && p._kid === false && !/성인|남성|여성/.test(str(p.name) + " " + str(p.gender));
+    const ageOk = (p) => {
+      if (p._kid === "both" || kid === p._kid) return true;
+      if (p._part) return false;
+      return kid ? ageless(p) : !adultAsked;
+    };
+    // Clothes with no season of their own: left out when the name shows they do not fit the season asked for.
+    const offSeason = (p) => {
+      if (!season || p._season) return false;
+      const n = str(p.name);
+      if (season === "summer") return /긴팔|베이스 레이어|후드|소프트쉘|방풍|플리스|기모/.test(n) && !/선 프로텍트|자외선|UV|쿨/.test(n);
+      return /저지|7부|8부|카프리|메쉬|리넨|집오프|컨버터블|판초|민소매|탱크/.test(n);
+    };
 
     // Words not explained by a rule are matched as free text against each product's own wording.
     let rest = q.replace(FILLER, " ");
@@ -657,12 +672,13 @@ window.onerror = function (msg, src, line) {
         if (season === "winter" && p._season === "summer") return false;
         if (season === "summer" && p._season === "winter") return false;
         if (season && !kinds.length && !/^(top|bottom|outer)$/.test(p._part)) return false;
+        if (offSeason(p)) return false;
         if (strict !== false) {
           if (hint.length && !hint.includes(p.sport)) return false;
           for (const t of inName) if (!p._nn.includes(t)) return false;
         }
-        if (gender && str(p.gender) && !str(p.gender).includes(gender)) return false;
-        if (p._kid !== "both" && kid !== p._kid) return false;
+        if (gender && str(p.gender) && !/공용/.test(str(p.gender)) && !str(p.gender).includes(gender)) return false;
+        if (!ageOk(p)) return false;
         if (cap && p.price > cap) return false;
         if (useSport && sport && !hint.length && p.sport !== sport) return false;
         if (useStore && onlyStore && DB.store && p.goyang !== 1) return false;
@@ -684,8 +700,12 @@ window.onerror = function (msg, src, line) {
       if (!kinds.length && !needs.length) scored = scored.filter((x) => x.fhit > 0);
       const sm = (x) => (season && x.p._season === season ? 1 : 0);
       const ac = (x) => (!accAsked && x.p._acc ? 1 : 0);
-      scored.sort((a, b) => ac(a) - ac(b) || sm(b) - sm(a) || (b.hits.length + b.fhit) - (a.hits.length + a.fhit) || b.s - a.s || (cheap ? a.p.price - b.p.price : 0) || (b.p.written ? 1 : 0) - (a.p.written ? 1 : 0) || (b.p.reviews || 0) - (a.p.reviews || 0));
+      // Child search: products made for children first, then small ball sizes before full-size ones.
+      const kd = (x) => (!kid ? 0 : x.p._kid === true ? 3 : /[1-4]호|미니/.test(str(x.p.name)) ? 2 : /[5-7]호/.test(str(x.p.name)) ? 0 : 1);
+      scored.sort((a, b) => ac(a) - ac(b) || sm(b) - sm(a) || kd(b) - kd(a) || (b.hits.length + b.fhit) - (a.hits.length + a.fhit) || b.s - a.s || (cheap ? a.p.price - b.p.price : 0) || (b.p.written ? 1 : 0) - (a.p.written ? 1 : 0) || (b.p.reviews || 0) - (a.p.reviews || 0));
       if (cheap && !needs.length && !free.length) scored.sort((a, b) => ac(a) - ac(b) || a.p.price - b.p.price);
+      // Enough clothes made for the season: the ones with no season are not needed.
+      if (season && scored.filter((x) => x.p._season === season).length >= 5) scored = scored.filter((x) => x.p._season === season);
       return scored;
     };
     // Widen step by step so the staff member always gets something to show.
