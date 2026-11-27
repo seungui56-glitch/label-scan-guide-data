@@ -722,8 +722,8 @@ window.onerror = function (msg, src, line) {
     const cheap = /저렴|싼|싸게|저가|예산/.test(q) || o.sort === "asc";
     const m = q.match(/(\d+)\s*만\s*원?/);
     const cap = m ? Number(m[1]) * 10000 * 1.1 : 0;
-    const gender = /남성|남자|남편|아들|아빠/.test(q) ? "남성" : /여성|여자|아내|딸|엄마|와이프/.test(q) ? "여성" : "";
-    const kid = /아이(?!스|젠|언)|아동|어린이|키즈|주니어/.test(q);
+    const gender = /남성|남자|남편|아들|아빠|남아/.test(q) ? "남성" : /여성|여자|아내|딸|엄마|와이프|여아/.test(q) ? "여성" : "";
+    const kid = /아이(?!스|젠|언)|아동|어린이|키즈|주니어|남아|여아|유아/.test(q);
     const adultAsked = !!gender || /성인|어른/.test(q);
     // Gear with no age in its name or gender (balls, tents, helmets) suits a child search too.
     const ageless = (p) => !p._part && p._kid === false && !/성인|남성|여성/.test(str(p.name) + " " + str(p.gender));
@@ -744,7 +744,7 @@ window.onerror = function (msg, src, line) {
     let rest = q.replace(FILLER, " ");
     for (const k of allKinds) rest = rest.replace(new RegExp(k.q.source, "g"), " ");
     for (const n of needs) rest = rest.replace(new RegExp(n.q.source, "g"), " ");
-    rest = rest.replace(/남성|남자|남편|아들|아빠|여성|여자|아내|딸|엄마|와이프|아이(?!스|젠|언)|아동|어린이|키즈|주니어|저렴|\d+\s*만\s*원?|이하|이상|정도|미만/g, " ");
+    rest = rest.replace(/남성|남자|남편|아들|아빠|여성|여자|아내|딸|엄마|와이프|아이(?!스|젠|언)|아동|어린이|키즈|주니어|남아|여아|유아|저렴|\d+\s*만\s*원?|이하|이상|정도|미만/g, " ");
     rest = rest.replace(/러닝|달리기|런닝|등산|하이킹|트레킹|산행|헬스|피트니스|홈트|캠핑|야영|차박|글램핑|피크닉|수영|스키|겨울|여름|봄|가을|옷|의류|성인|어른/g, " ");
     const free = [...new Set(rest.split(/[^0-9a-z가-힣]+/).map(stem).filter((t) => t.length >= 2))];
     if (!kinds.length && !needs.length && !free.length && !hint.length && !o.open) return null;
@@ -785,6 +785,10 @@ window.onerror = function (msg, src, line) {
     }
     must = must.map((t) => (/^(테니스|배드민턴|탁구|스쿼시)$/.test(t) && kinds.length && !DB.products.some((p) => p._nn.includes(t) && kinds.some((k) => kindHit(k, p))) ? "라켓" : t));
     if (o.func) must = must.filter((t) => /^(무릎|발목|손목|팔꿈치|허리|종아리|허벅지|어깨|정강이)$/.test(t) || str(o.funcWord).includes(t));
+    // A compound label word that only contains a product word ("퀵오픈캡" contains 캡): the whole word must be in
+    // the name, and if no product of the kind read from it has that name, the kind was a misreading.
+    const comp = q.trim().split(/\s+/).map(stem).filter((w) => w.length >= 3 && /^[가-힣]+$/.test(w) && allKinds.some((k) => { const m = (" " + w + " ").match(k.q); return m && m[0].trim().length < w.length; }) && DB.products.some((p) => p._nn.includes(w)));
+    for (const c of comp) if (!must.includes(c)) must.push(c);
     const mustAll = must.slice();
 
     const kindPool = arr(o.attrs).length ? DB.products.filter((p) => p.price && (!kinds.length || kinds.some((k) => kindHit(k, p))) && must.every((t) => p._nn.includes(t)) && (!hint.length || hint.includes(p.sport))) : [];
@@ -857,6 +861,10 @@ window.onerror = function (msg, src, line) {
       if (season && scored.filter((x) => x.p._season === season).length >= 5) scored = scored.filter((x) => x.p._season === season);
       return scored;
     };
+    if (comp.length && kinds.length) {
+      useBudget = useSeason = false; const n = build(false, true, false).length; useBudget = useSeason = true;
+      if (!n) kinds = [];
+    }
     // Several name words that no single product carries: drop as few as possible and say which.
     const extra = [];
     // A word that appears nowhere in the data: say so instead of silently ignoring it.
@@ -1001,6 +1009,7 @@ window.onerror = function (msg, src, line) {
     q = q.replace(/ (잘 ?나가\S*|잘 ?팔리\S*|뭐가 ?인기\S*|인기예요|인기에요)(?= )/g, " 인기 ");
     // the starter-kit question keeps its own words ("뭐 사야", "뭐 필요"); every other request ending goes
     q = q.replace(/추천 ?(좀|해 ?줘요?|해 ?주세요|부탁\S*|ㄱㄱ|해봐)?|ㅊㅊ|ㄱㄱ|ㅇㅇ|ㅎㅎ+|ㅋㅋ+|ㅠㅠ+/g, " ");
+    q = q.replace(/ 어디 ?에? ?(있어요|있나요|있죠|있습니까|있을까요)(?= )/g, " ");
     q = q.replace(/ (있음|있냐고?|있나|있어|있어요|있나요|있습니까|없음|없냐|없나|없어요|없나요|뭐가? ?좋(냐|음|아|아요|을까|나)|뭐 ?있(냐|음|어)|알려 ?줘요?|보여 ?줘요?|줘 ?봐|줘요?|어딨음|어딨어|어디 ?(있음|있냐|있어|임)|찾아요|찾음|찾는데|사려는데|살 ?건데|사고 ?싶은데|고민됨|고민되는데|고민중|아무거나|걸로|좋음|좋냐|함|좀)(?= )/g, " ");
     q = q.replace(/ (있음|있냐고?|없냐|좀|걸로|아무거나)(?= )/g, " ");
     return q.replace(/\s+/g, " ").trim();
@@ -1204,7 +1213,7 @@ window.onerror = function (msg, src, line) {
     q = q.replace(/눈썰매장?/g, " 스키 겨울 ");
     q = q.replace(/(스노우?)?보드 ?(장갑|고글|바지|자켓|양말|헬멧|부츠|타러|타는|탈)/g, " 스키 $2 ");
     q = q.replace(/ 날씨(가|에|는)?(?= )/g, " ");
-    if (cut(/화장실|환불|교환|카드|할부|영수증|멤버십|피팅룸|탈의실|몇 ?층|택배|영업 ?시간|몇 ?시(까지|에|부터)?|주차|직원|계산대?|결제|포인트|회원 ?가입|배송|수선|와이파이/g)) o.shop = true;
+    if (cut(/화장실|환불|반품|교환|(^| )a\/?s(?= )|에이에스|보증|세탁기?|건조기|빨아|수선|재고|다른 ?매장|온라인|입어 ?봐|신어 ?봐|포장|카드|할부|영수증|멤버십|피팅룸|탈의실|몇 ?층|택배|영업 ?시간|몇 ?시(까지|에|부터)?|주차|직원|계산대?|결제|포인트|회원 ?가입|배송|수선|와이파이/g)) o.shop = true;
     q = q.replace(/(요가|필라테스|러닝|등산|헬스|운동|골프|테니스|축구|농구|배드민턴)복/g, " $1 옷 ");
     if (/시려|시린|시렵/.test(q) && !/넥워머|목도리|바라클라바|귀마개|헤드밴드|비니|모자|장갑|양말/.test(q)) {
       q = q.replace(/ 손(이랑|하고|이|도|은|을)?(?= )/g, " 장갑 랑 ").replace(/ 발(이랑|하고|이|도|은|을)?(?= )/g, " 양말 랑 ").replace(/ 귀(랑|하고|가|도|는|를)?(?= )/g, " 귀마개 헤드밴드 ").replace(/ 목(이랑|하고|이|도|은|을)?(?= )/g, " 넥워머 랑 ");
@@ -1222,11 +1231,12 @@ window.onerror = function (msg, src, line) {
     q = q.replace(/(러닝|런닝|등산|축구|농구|테니스|워킹)와(?= )/g, "$1화").replace(/수영 ?(뽁|벅|뽀ㄱ)/g, " 수영복 ");
     q = q.replace(/(테니스|탁구|골프|야구|배구|축구|농구|풋살) ?(공|볼)(?= )/g, " $1공 ").replace(/배드민턴 ?(공|볼)(?= )/g, " 셔틀콕 ");
     q = q.replace(/(^| )키퍼 ?장갑/g, " 골키퍼 장갑").replace(/운동 ?밴드/g, " 밴드 ").replace(/요가 ?(메트|맷)/g, " 요가 매트 ").replace(/스타킹/g, " 양말 ").replace(/휴가( ?때)?|동남아|해외여행/g, " ");
+    q = q.replace(/복근 ?(휠|롤러|운동 ?기구)|ab ?(휠|롤러)|뱃살 ?롤러/g, " ab 슬라이드 ");
     q = q.replace(/신 ?가드/g, " 정강이 보호대 ").replace(/권투/g, " 복싱 ").replace(/슬리핑 ?백/g, " 침낭 ").replace(/쫄쫄이 ?바지|쫄바지|쫄쫄이/g, " 레깅스 ").replace(/씽씽이|씽씽카/g, " 킥보드 ");
     q = q.replace(/륙색|룩색|백 ?펙/g, " 배낭 ").replace(/윈드 ?브레이커/g, " 바람막이 ").replace(/(러닝|런닝|조깅|하이킹|트레킹|워킹|테니스|농구|배드민턴|축구) ?슈즈/g, "$1화 ").replace(/삭스/g, " 양말 ").replace(/숏 ?팬츠|쇼트 ?팬츠/g, " 반바지 ").replace(/워터 ?보틀/g, " 물병 ");
     q = q.replace(/헤드 ?라이트|후레쉬|후래쉬|플래쉬|헤드 ?랜턴/g, " 헤드램프 ").replace(/렌턴/g, " 랜턴 ").replace(/트래킹/g, "트레킹").replace(/베드민턴/g, "배드민턴").replace(/(등산|트레킹|워킹) ?(지팡이|폴)/g, " 등산 스틱 ").replace(/팔 ?튜브/g, " 암튜브 ");
     q = q.replace(/수영 ?(빤스|팬티|빤쓰)/g, " 수영복 ").replace(/스윔 ?슈트|스윔 ?수트/g, " 수영복 ").replace(/수영 ?캡/g, " 수모 ").replace(/(등산|하이킹) ?부츠/g, " 등산화 ");
-    if (cut(/세일|할인|행사 ?상품|특가|쿠폰/g)) { o.notes.push("할인 정보는 자료에 없으니 라벨 가격을 확인하세요"); o.detail = true; o.sale = true; }
+    if (cut(/세일(?!링)|할인|행사 ?상품|특가|쿠폰/g)) { o.notes.push("할인 정보는 자료에 없으니 라벨 가격을 확인하세요"); o.detail = true; o.sale = true; }
     if (cut(/이거|이것|이건|저거|그거|요거|이 ?(제품|상품)|보다| 더(?= )/g)) o.vague = true;
     if (cut(/선크림|선 ?스틱|선 ?스프레이|자외선 ?차단제/g)) { q += " 자외선 "; o.notes.push("선크림은 자료에 없어 햇빛을 막는 옷과 모자를 보여 드립니다"); o.detail = true; }
     q = q.replace(/ 운동(을|에|도|은)?( 후| 전| 끝나고)?(?= )/g, " ");
@@ -1234,6 +1244,11 @@ window.onerror = function (msg, src, line) {
     q = q.replace(/어린이날|크리스마스|성탄절|어버이날|스승의 ?날|집들이|입학|졸업|결혼 ?기념일|취업( ?축하)?|명절|설날|추석|퇴직|승진|축하|기념일/g, " ");
     q = q.replace(/장인 ?어른|시아버지|아버님|할아버지/g, " 남자 ").replace(/장모님?|시어머니|어머님|할머니/g, " 여자 ").replace(/직장 ?동료|동료|부모님|선생님|지인/g, " ");
     q = q.replace(/교체용|교체 ?할|따로 ?파\S*|따로|단품|낱개/g, " ");
+    q = q.replace(/저학년|고학년|초등(?= )|초등생/g, " 아이 ").replace(/중학생|고등학생|대학생|직장인|[2-9]0대( ?(남자|여자))?|어르신/g, (m) => (/남자/.test(m) ? " 남자 " : /여자/.test(m) ? " 여자 " : " "));
+    q = q.replace(/ (짜리|묶음|한 ?묶음)(?= )|짜리(?= )/g, " ");
+    // two people: each gets their own products
+    const DUO = [[/커플|부부|남편이?랑( ?(저|나))?(?= )|아내랑( ?(저|나))?(?= )|엄마 ?아빠|남녀/, ["남성=남자", "여성=여자"]], [/엄마랑 ?딸|모녀/, ["여성=여자", "여아=아이 여자"]], [/아빠랑 ?아들|부자(?= )/, ["남성=남자", "남아=아이 남자"]], [/아빠랑 ?딸|부녀/, ["남성=남자", "여아=아이 여자"]], [/엄마랑 ?아들|모자(?= 커플)/, ["여성=여자", "남아=아이 남자"]], [/형이?랑 ?동생|형제/, ["남성=남자", "아동=아이"]]];
+    if (!/텐트|침낭|매트|의자|테이블|해먹|타프/.test(q)) for (const [re, who] of DUO) if (re.test(q)) { q = q.replace(re, " "); o.duo = who; o.detail = true; o.said.push("두 사람"); break; }
     // -- who --
     q = q.replace(/(\d{1,2})\s*(살|세)(짜리)?/, (_, n) => { o.said.push("나이: " + n + "살"); o.detail = true; return +n <= 13 ? " 아이 " : " "; });
     q = q.replace(/[1-6]\s*학년|유치원생?|어린이집/, " 아이 ");
@@ -1256,7 +1271,7 @@ window.onerror = function (msg, src, line) {
     if (cut(/자전거|사이클|mtb|로드 ?바이크/g)) { o.notes.push("자전거 제품은 이 자료에 없습니다"); o.detail = true; }
 
     // -- what the customer does not want --
-    q = q.replace(/(\S+?)(이|가|은|는|도)?\s*(안 ?되는|안 ?되도 ?되는|안 ?돼도 ?되는|안 ?달린|안 ?붙은|안 ?들어간|없는|없어도 ?되는|필요 ?없는|말고|빼고|아닌)(?= )/g, (m, w) => {
+    q = q.replace(/(\S+?)(이|가|은|는|도)?\s*(대신|아니고|아니라|있고|있으니까|있어서|안 ?되는|안 ?되도 ?되는|안 ?돼도 ?되는|안 ?달린|안 ?붙은|안 ?들어간|없는|없어도 ?되는|필요 ?없는|말고|빼고|아닌)(?= )/g, (m, w) => {
       if (w.length < 2 || /^(문제|부담|상관|관계)$/.test(w)) return m;
       o.neg.push(w); o.said.push("제외: " + w); o.detail = true; return " ";
     });
@@ -1447,10 +1462,19 @@ window.onerror = function (msg, src, line) {
   const askBack = (o, text) => ({ fixes: [], kinds: [], needs: [], free: [], season: "", hint: [], direct: false, cheap: false, detail: true, ask: true, said: o.said, note: [text].concat(o.notes).filter(Boolean).join(" · "), list: [] });
   function recommend(query) {
     const o = understand(query);
-    if (o.shop) return askBack(o, "매장 이용 안내는 이 앱에 없습니다. 제품 이름이나 종류로 물어봐 주세요");
+    if (o.shop) return askBack(o, "세탁·보증·재고·교환 같은 안내는 이 앱에 없습니다. 제품 이름이나 종류로 물어봐 주세요");
+    // A name as printed on the label, or a compound word that is itself in product names ("반장갑"), is a name search.
+    const pw = o.plain.trim().split(/\s+/).filter(Boolean);
+    const nq = norm(o.plain);
+    const whole = (w) => KINDS.some((k) => { const m = (" " + w + " ").match(k.q); return m && m[0].trim().length >= w.length; });
+    const inLabels = (t) => DB.products.some((p) => p._nn.includes(t));
+    if (nq.length >= 6 && pw.length >= 3 && inLabels(nq)) return null;
+    if (!o.detail && !o.func) {
+      if (pw.length <= 2 && pw.some((w) => w.length >= 3 && /[a-z]\d|\d[a-z]/.test(w) && inLabels(norm(w)))) return null;
+    }
     if (!o.q && !o.open && !o.scene) return askBack(o, "무엇을 찾는지 종류나 종목을 적어 주세요. 예: 러닝화, 겨울 등산 자켓, 캠핑 준비물");
     let r = recommendCore(o.q, o);
-    if ((!r || !r.list.length || (!r.kinds.length && !r.named && !r.hint.length) || (!r.kinds.length && o.words <= 2)) && /[가-힣]{2}/.test(o.q) && !o.outfit && !o.kit && !o.scene && !o.vague) {
+    if ((!r || !r.list.length || (!r.kinds.length && !r.named && !r.hint.length) || (!r.kinds.length && o.words <= 2)) && /[가-힣]{2}/.test(o.q) && !o.outfit && !o.kit && !o.scene && !o.vague && !searchName(o.plain).length) {
       const r2 = recommendCore(o.q, Object.assign({}, o, { typoHard: true, notes: o.notes.slice() }));
       if (r2 && r2.list.length && r2.fixes.length && (r2.kinds.length || !r || !r.list.length)) r = r2;
     }
@@ -1465,6 +1489,12 @@ window.onerror = function (msg, src, line) {
     // "이거보다 싼 거": there is no product on screen to compare with, so ask which kind.
     if (o.neg.length && empty) return askBack(o, "빼고 싶은 것만 적혀 있습니다. 찾는 종류를 함께 적어 주세요. 예: 방수 안 되는 등산화");
     if (!r && /싼|저렴|좋은|괜찮/.test(o.q)) return askBack(o, "무엇을 찾는지 종류나 종목을 적어 주세요. 예: 싼 러닝화, 좋은 등산 자켓");
+    if (o.duo && r && r.kinds.length) {
+      let ctx = " " + o.q + " ";
+      const word = (ctx.match(r.kinds[0].q) || [r.kinds[0].name])[0].trim();
+      const d = kitFor(o, [null, r.hint[0] || "", o.duo.map((x) => x + " " + word)], "두 분 것을 각각 골랐습니다", "두 사람", { per: 2, ctx: ctx.replace(new RegExp(r.kinds[0].q.source, "g"), " ") });
+      if (d && d.list.length >= 2) return d;
+    }
     if (o.vague && empty) return askBack(o, "어떤 제품과 비교할지 종류를 함께 적어 주세요. 예: 더 싼 러닝화, 더 따뜻한 등산 자켓");
     if (o.sale && (!r || !r.list.length || empty)) return askBack(o, "");
     return r;
@@ -1561,7 +1591,7 @@ window.onerror = function (msg, src, line) {
   }
   function runSearch(q) {
     let rec = isCho(String(q).replace(/\s+/g, "")) ? null : recommend(q);
-    const names = searchName(q);
+    const names = searchName(isCho(String(q).replace(/\s+/g, "")) ? q : plain(q) || q);
     // A plain product-name or code search: show the name matches, not recommendations.
     if (rec && !rec.kinds.length && !rec.needs.length && !rec.season && !rec.detail && names.length) rec = null;
     const rb = $("recBlock");
