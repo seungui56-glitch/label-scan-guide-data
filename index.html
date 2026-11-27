@@ -767,7 +767,7 @@ window.onerror = function (msg, src, line) {
     // the accessory word itself must be in the name, short words included
     if (/스틱 ?캡/.test(q) && !inName.includes("스틱캡")) inName.push("스틱캡");
     if (/(매트|라켓|신발|공|헬멧|텐트|침낭) ?가방/.test(q) && !inName.includes("가방")) inName.push("가방");
-    for (const w of (q.match(/케이스|커버|스트랩|펌프|베어링|스탠드|그립|라이너|파우치|아이스팩|스프레이|(?<= )(팩|폴|휠)(?= )/g) || [])) if (!inName.includes(w) && DB.products.some((p) => p._nn.includes(w))) inName.push(w);
+    for (const w of (q.match(/케이스|커버|스트랩|펌프|베어링|스탠드|그립|라이너|파우치|아이스팩|스프레이| (팩|폴|휠)(?= )/g) || []).map((x) => x.trim())) if (!inName.includes(w) && DB.products.some((p) => p._nn.includes(w))) inName.push(w);
     // "농구화", "풋살화": the sport must be in the shoe's name.
     const shoe = q.match(/(농구|테니스|배드민턴|탁구|골프|배구|풋살|워킹|트레일러닝)화/);
     if (shoe && !inName.includes(shoe[1])) inName.push(shoe[1]);
