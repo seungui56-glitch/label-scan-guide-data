@@ -1159,7 +1159,8 @@ window.onerror = function (msg, src, line) {
       if (rec.cheap && !arr(rec.said).length) parts.push("가격 우선");
       for (const t of arr(rec.said)) parts.push(t);
       let sub = parts.join(" · ");
-      if (arr(rec.free).length) parts.push("검색어: " + rec.free.join(", "));
+      const shown = arr(rec.free).filter((t) => arr(rec.miss).includes(t) && DB.products.some((p) => p._nn.includes(t)));
+      if (shown.length) parts.push("검색어: " + shown.join(", "));
       sub = parts.join(" · ");
       if (arr(rec.fixes).length) sub = "오타 보정: " + rec.fixes.join(", ") + " · " + sub;
       if (rec.note) sub += " · " + rec.note;
@@ -1180,7 +1181,7 @@ window.onerror = function (msg, src, line) {
       rec.list.forEach((x, i) => box.append(recCard(x, i, rec)));
     } else if (rec && !rec.list.length) {
       rb.hidden = false;
-      $("recSub").textContent = rec.ask ? rec.note : (arr(rec.miss).length ? "'" + rec.miss.join(", ") + "'에 맞는 제품을 자료에서 찾지 못했습니다. " : "조건에 맞는 제품을 자료에서 찾지 못했습니다. ") + "다른 말로 바꾸거나 조건을 줄여서 다시 입력해 보세요." + (rec.note ? " · " + rec.note : "");
+      $("recSub").textContent = rec.ask ? rec.note : (arr(rec.miss).length ? "'" + rec.miss.join(", ") + "'에 맞는 제품을 자료에서 찾지 못했습니다. " : "조건에 맞는 제품을 자료에서 찾지 못했습니다. ") + "다른 말로 바꾸거나 조건을 줄여서 다시 입력해 보세요.";
       $("recs").replaceChildren();
     } else {
       rb.hidden = true;
